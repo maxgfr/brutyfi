@@ -1,0 +1,95 @@
+name: Update Homebrew Formula
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  update-formula:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout tap repository
+        uses: actions/checkout@v4
+        with:
+          repository: maxgfr/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-tap
+
+      - name: Download release assets and calculate checksums
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+
+          # Download release assets
+          mkdir -p downloads
+          cd downloads
+          curl -sL "https://github.com/maxgfr/bruteforce-wifi/releases/download/v${VERSION}/bruteforce-wifi-macos-aarch64.tar.gz" -o macos-arm64.tar.gz
+          curl -sL "https://github.com/maxgfr/bruteforce-wifi/releases/download/v${VERSION}/bruteforce-wifi-macos-x86_64.tar.gz" -o macos-x86_64.tar.gz
+          curl -sL "https://github.com/maxgfr/bruteforce-wifi/releases/download/v${VERSION}/bruteforce-wifi-linux-x86_64.tar.gz" -o linux-x86_64.tar.gz
+
+          # Calculate SHA256 checksums
+          SHA_ARM64=$(sha256sum macos-arm64.tar.gz | awk '{print $1}')
+          SHA_X86_64=$(sha256sum macos-x86_64.tar.gz | awk '{print $1}')
+          SHA_LINUX=$(sha256sum linux-x86_64.tar.gz | awk '{print $1}')
+
+          echo "SHA_ARM64=${SHA_ARM64}" >> $GITHUB_ENV
+          echo "SHA_X86_64=${SHA_X86_64}" >> $GITHUB_ENV
+          echo "SHA_LINUX=${SHA_LINUX}" >> $GITHUB_ENV
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+
+      - name: Update Homebrew formula
+        run: |
+          cd homebrew-tap
+          mkdir -p Formula
+
+          cat > Formula/bruteforce-wifi.rb << 'EOF'
+          class BruteforceWifi < Formula
+            desc "WiFi bruteforce tool for educational purposes"
+            homepage "https://github.com/maxgfr/bruteforce-wifi"
+            version "${{ env.VERSION }}"
+            license "MIT"
+
+            on_macos do
+              if Hardware::CPU.arm?
+                url "https://github.com/maxgfr/bruteforce-wifi/releases/download/v${{ env.VERSION }}/bruteforce-wifi-macos-aarch64.tar.gz"
+                sha256 "${{ env.SHA_ARM64 }}"
+              else
+                url "https://github.com/maxgfr/bruteforce-wifi/releases/download/v${{ env.VERSION }}/bruteforce-wifi-macos-x86_64.tar.gz"
+                sha256 "${{ env.SHA_X86_64 }}"
+              end
+            end
+
+            on_linux do
+              url "https://github.com/maxgfr/bruteforce-wifi/releases/download/v${{ env.VERSION }}/bruteforce-wifi-linux-x86_64.tar.gz"
+              sha256 "${{ env.SHA_LINUX }}"
+            end
+
+            def install
+              bin.install "bruteforce-wifi"
+            end
+
+            def caveats
+              <<~EOS
+                ⚠️  EDUCATIONAL USE ONLY - UNAUTHORIZED ACCESS IS ILLEGAL ⚠️
+
+                This tool requires root privileges to scan WiFi networks:
+                  sudo bruteforce-wifi wordlist ./passwords.txt
+
+                Quick start:
+                  sudo bruteforce-wifi --target 0 numeric --min 8 --max 8
+              EOS
+            end
+
+            test do
+              assert_match "bruteforce-wifi", shell_output("#{bin}/bruteforce-wifi --version 2>&1", 0)
+            end
+          end
+          EOF
+
+      - name: Commit and push changes
+        run: |
+          cd homebrew-tap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/bruteforce-wifi.rb
+          git commit -m "Update bruteforce-wifi to ${{ env.VERSION }}"
+          git push

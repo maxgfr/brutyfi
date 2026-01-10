@@ -1,0 +1,28 @@
+[package]
+name = "bruteforce-wifi"
+version = "1.0.0"
+edition = "2021"
+description = "Optimized WiFi bruteforce tool with wordlist and numeric combination support"
+license = "MIT"
+repository = "https://github.com/maxgfr/bruteforce-wifi"
+authors = ["maxgfr"]
+
+[dependencies]
+clap = { version = "4.5", features = ["derive"] }
+tokio = { version = "1.35", features = ["full"] }
+anyhow = "1.0"
+rayon = "1.8"
+indicatif = "0.17"
+colored = "2.1"
+num_cpus = "1.16"
+parking_lot = "0.12"
+log = "0.4"
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+strip = true
+panic = "abort"
+overflow-checks = false
+incremental = false

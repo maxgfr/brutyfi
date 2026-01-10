@@ -339,58 +339,6 @@ Bruteforce Speed:     2000-5000+ attempts/second (hardware-dependent)
 
 ---
 
-## 🔧 GitHub Actions & Release
-
-This project uses GitHub Actions to automate releases and Homebrew updates.
-
-### Release Workflow (`.github/workflows/release.yml`)
-
-On a tag push `v*`, the workflow:
-
-1. **Multi-platform build**
-   - Linux x86_64
-   - macOS x86_64
-   - macOS ARM64 (Apple Silicon)
-
-2. **Automatic generation**
-   - Creation of `.tar.gz` archives
-   - Calculation of SHA256 checksums
-   - Upload of artifacts
-
-3. **Release creation**
-   - Formatted release notes
-   - Binaries for each platform
-   - SHA256SUMS files
-
-### Creating a Release
-
-```bash
-# 1. Update version in Cargo.toml if necessary
-# 2. Commit changes
-git add .
-git commit -m "Release v1.0.0"
-git push origin master
-
-# 3. Create and push the tag
-git tag v1.0.0
-git push origin v1.0.0
-```
-
-The GitHub Actions workflow triggers automatically and creates the release!
-
-### Homebrew Workflow (`.github/workflows/update-bruteforce-wifi.yml`)
-
-Automatically triggered after a release is published:
-
-1. Downloads release binaries
-2. Calculates SHA256 for each platform
-3. Updates Homebrew formula in `maxgfr/homebrew-tap`
-4. Commits and pushes automatically
-
-**Required configuration**: Secret `HOMEBREW_TAP_TOKEN` with `repo` permissions
-
----
-
 ## 🛡️ Security & Legal
 
 <div align="center">

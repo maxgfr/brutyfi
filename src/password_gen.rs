@@ -4,8 +4,6 @@
  * Optimized for parallel processing with minimal memory allocation.
  */
 
-use rayon::prelude::*;
-
 /// Parallel numeric password generator for efficient bruteforce
 ///
 /// Generates numeric passwords in parallel batches with optimal

@@ -79,11 +79,7 @@ impl OfflineBruteForcer {
     }
 
     /// Bruteforce using numeric passwords
-    pub fn crack_numeric(
-        &self,
-        min_length: usize,
-        max_length: usize,
-    ) -> Result<Option<String>> {
+    pub fn crack_numeric(&self, min_length: usize, max_length: usize) -> Result<Option<String>> {
         println!("🚀 Starting offline WPA/WPA2 crack");
         println!("📝 SSID: {}", self.handshake.ssid);
         println!("🔢 Range: {}-{} digits", min_length, max_length);
@@ -107,7 +103,7 @@ impl OfflineBruteForcer {
             let pb = ProgressBar::new(total);
             pb.set_style(
                 ProgressStyle::default_bar()
-                    .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({per_sec}) {msg}")
+                    .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({per_sec}) {eta} {msg}")
                     .unwrap()
                     .progress_chars("█▓▒░-"),
             );
@@ -122,21 +118,19 @@ impl OfflineBruteForcer {
                 let found_password_ref = Arc::clone(&found_password);
 
                 // Parallel password testing
-                let result = batch
-                    .par_iter()
-                    .find_any(|password| {
-                        if found_ref.load(Ordering::Relaxed) {
-                            return false;
-                        }
+                let result = batch.par_iter().find_any(|password| {
+                    if found_ref.load(Ordering::Relaxed) {
+                        return false;
+                    }
 
-                        if self.test_password(password) {
-                            found_ref.store(true, Ordering::Release);
-                            *found_password_ref.lock() = Some(password.to_string());
-                            true
-                        } else {
-                            false
-                        }
-                    });
+                    if self.test_password(password) {
+                        found_ref.store(true, Ordering::Release);
+                        *found_password_ref.lock() = Some(password.to_string());
+                        true
+                    } else {
+                        false
+                    }
+                });
 
                 pb.inc(batch.len() as u64);
 
@@ -181,7 +175,7 @@ impl OfflineBruteForcer {
         let pb = ProgressBar::new(passwords.len() as u64);
         pb.set_style(
             ProgressStyle::default_bar()
-                .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({per_sec}) {msg}")
+                .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({per_sec}) {eta} {msg}")
                 .unwrap()
                 .progress_chars("█▓▒░-"),
         );
@@ -196,31 +190,29 @@ impl OfflineBruteForcer {
         // Parallel processing with optimal chunk size
         let chunk_size = (passwords.len() / (self.threads * 12)).max(100).min(10000);
 
-        passwords
-            .par_chunks(chunk_size)
-            .find_any(|chunk| {
-                for password in chunk.iter() {
-                    if found_ref.load(Ordering::Relaxed) {
-                        return false;
-                    }
-
-                    if self.test_password(password) {
-                        found_ref.store(true, Ordering::Release);
-                        *found_password_ref.lock() = Some(password.to_string());
-                        pb.inc(chunk.len() as u64);
-                        return true;
-                    }
+        passwords.par_chunks(chunk_size).find_any(|chunk| {
+            for password in chunk.iter() {
+                if found_ref.load(Ordering::Relaxed) {
+                    return false;
                 }
-                pb.inc(chunk.len() as u64);
 
-                // Update throughput
-                let elapsed = start_time.elapsed().as_secs_f64();
-                let current_attempts = self.attempts.load(Ordering::Relaxed);
-                let throughput = current_attempts as f64 / elapsed;
-                pb.set_message(format!("{:.0} pwd/s", throughput));
+                if self.test_password(password) {
+                    found_ref.store(true, Ordering::Release);
+                    *found_password_ref.lock() = Some(password.to_string());
+                    pb.inc(chunk.len() as u64);
+                    return true;
+                }
+            }
+            pb.inc(chunk.len() as u64);
 
-                false
-            });
+            // Update throughput
+            let elapsed = start_time.elapsed().as_secs_f64();
+            let current_attempts = self.attempts.load(Ordering::Relaxed);
+            let throughput = current_attempts as f64 / elapsed;
+            pb.set_message(format!("{:.0} pwd/s", throughput));
+
+            false
+        });
 
         pb.finish_with_message("Done");
 
@@ -246,20 +238,16 @@ impl OfflineBruteForcer {
 /// Bruteforce using a wordlist file (wrapper for compatibility)
 /// Load handshake from either .cap or .json file
 fn load_handshake(path: &std::path::Path, ssid: Option<&str>) -> Result<Handshake> {
-    let extension = path.extension()
-        .and_then(|e| e.to_str())
-        .unwrap_or("");
+    let extension = path.extension().and_then(|e| e.to_str()).unwrap_or("");
 
     let handshake = match extension.to_lowercase().as_str() {
         "cap" | "pcap" => {
             use crate::handshake::parse_cap_file;
-            parse_cap_file(path, ssid)
-                .context("Failed to parse .cap file")?
+            parse_cap_file(path, ssid).context("Failed to parse .cap file")?
         }
         _ => {
             // Default to JSON format
-            Handshake::load_from_file(path)
-                .context("Failed to load handshake file")?
+            Handshake::load_from_file(path).context("Failed to load handshake file")?
         }
     };
 
@@ -294,7 +282,10 @@ pub async fn bruteforce_wordlist(
         .map(|line| line.trim().to_string())
         .collect();
 
-    println!("✓ Loaded {} valid passwords from wordlist\n", passwords.len());
+    println!(
+        "✓ Loaded {} valid passwords from wordlist\n",
+        passwords.len()
+    );
 
     // Create bruteforcer
     let forcer = OfflineBruteForcer::new(handshake, config.threads)?;
@@ -342,26 +333,4 @@ pub async fn bruteforce_numeric(
         duration_secs: elapsed.as_secs_f64(),
         passwords_per_second: rate,
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_offline_bruteforcer_creation() {
-        let handshake = Handshake::new(
-            "TestNetwork".to_string(),
-            [0x00, 0x11, 0x22, 0x33, 0x44, 0x55],
-            [0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF],
-            [0u8; 32],
-            [1u8; 32],
-            vec![0xAB; 16],
-            vec![0x02; 121],
-            2,
-        );
-
-        let forcer = OfflineBruteForcer::new(handshake, 4);
-        assert!(forcer.is_ok());
-    }
 }

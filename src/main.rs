@@ -11,7 +11,7 @@ use colored::Colorize;
 
 use cli::{Args, Mode, CrackMethod};
 use bruteforce::{BruteforceConfig, bruteforce_wordlist, bruteforce_numeric};
-use network::capture_traffic;
+use network::{capture_traffic, scan_networks, display_networks};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -21,14 +21,27 @@ async fn main() -> Result<()> {
     println!("{}\n", "WPA/WPA2 offline cracking tool - Educational use only".dimmed());
 
     match args.mode {
+        Mode::Scan(scan_args) => {
+            let networks = scan_networks(&scan_args.interface)?;
+            display_networks(&networks);
+        }
+        Mode::Capture(capture_args) => {
+            capture_traffic(
+                &capture_args.interface,
+                capture_args.channel,
+                capture_args.ssid.as_deref(),
+                capture_args.bssid.as_deref(),
+                &capture_args.output,
+                capture_args.duration,
+                capture_args.verbose,
+                capture_args.no_deauth,
+            )?;
+        }
         Mode::Crack { method } => {
             let config = BruteforceConfig {
                 threads: args.threads.unwrap_or_else(num_cpus::get),
             };
             handle_crack_mode(method, &config).await?;
-        }
-        Mode::Capture { interface, channel, ssid, output, duration } => {
-            capture_traffic(&interface, channel, ssid.as_deref(), &output, duration)?;
         }
     }
 

@@ -35,20 +35,29 @@
 ### Step 1: Capture Handshake
 
 ```bash
-# Capture specific channel to a file (stop with Ctrl+C or --duration)
-sudo bruteforce-wifi capture --interface en0 --channel 6 --output handshake.cap
+# Auto-detect channel and capture by SSID
+bruteforce-wifi capture --interface en0 --ssid "TP-Link_5GHz"
+
+# OR capture by BSSID (if SSID is hidden or duplicate)
+bruteforce-wifi capture --interface en0 --bssid AA:BB:CC:DD:EE:FF
 ```
 
-*Note: You need to wait for a device to connect to the network to capture the handshake.*
+**Real-time feedback:**
+- 🔑 M1 (ANonce) - AP sends nonce to client
+- 🔐 M2 (SNonce+MIC) - Client responds with nonce + MIC
+- 🎉 **COMPLETE HANDSHAKE** - Ready to crack!
+
+*Tip: Disconnect and reconnect a device manually if deauth doesn't work (macOS)*
+
 
 ### Step 2: Crack Offline
 
 ```bash
 # Numeric attack (8 digits)
-bruteforce-wifi crack numeric handshake.cap --ssid "TP-Link_5GHz" --min 8 --max 8
+bruteforce-wifi crack numeric capture.cap --ssid "TP-Link_5GHz" --min 8 --max 8
 
 # Wordlist attack
-bruteforce-wifi crack wordlist handshake.cap --ssid "TP-Link_5GHz" rockyou.txt
+bruteforce-wifi crack wordlist capture.cap --ssid "TP-Link_5GHz" rockyou.txt
 ```
 
 ---
@@ -126,8 +135,14 @@ Identify your target network's channel and BSSID using system tools (e.g., `airp
 
 **Using bruteforce-wifi:**
 
+**Using bruteforce-wifi:**
+
 ```bash
-sudo bruteforce-wifi capture --interface wlan0 --channel 6 --output capture.cap
+# By SSID (Auto-channel)
+sudo bruteforce-wifi capture -i en0 -s "MyNetwork"
+
+# By BSSID (Target specific AP)
+sudo bruteforce-wifi capture -i en0 -b AA:BB:CC:DD:EE:FF
 ```
 
 **Alternative (Linux/airodump-ng):**
@@ -261,7 +276,7 @@ cargo install --git https://github.com/maxgfr/bruteforce-wifi
 
 ```bash
 # Capture traffic
-sudo bruteforce-wifi capture --interface wlan0 --channel 6 --output handshake.cap
+sudo bruteforce-wifi capture --interface wlan0 --channel 6 --output capture.cap
 
 # For now, if automatic capture has issues, use airodump-ng manually.
 ```
@@ -434,4 +449,3 @@ This tool is for educational purposes and demonstrates:
 - [RFC 2898](https://tools.ietf.org/html/rfc2898) - PBKDF2 specification
 - [Aircrack-ng](https://www.aircrack-ng.org/) - WiFi security auditing
 - [Hashcat](https://hashcat.net/hashcat/) - Password recovery tool
-

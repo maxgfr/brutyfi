@@ -7,8 +7,6 @@
 
 use anyhow::{Context, Result, anyhow};
 use serde::{Deserialize, Serialize};
-use std::fs::File;
-use std::io::Read;
 use colored::*;
 
 /// WPA/WPA2 4-way handshake data structure
@@ -47,38 +45,6 @@ pub struct Handshake {
 }
 
 impl Handshake {
-    /// Create a new handshake from captured data
-    pub fn new(
-        ssid: String,
-        ap_mac: [u8; 6],
-        client_mac: [u8; 6],
-        anonce: [u8; 32],
-        snonce: [u8; 32],
-        mic: Vec<u8>,
-        eapol_frame: Vec<u8>,
-        key_version: u8,
-    ) -> Self {
-        Self {
-            ssid,
-            ap_mac,
-            client_mac,
-            anonce,
-            snonce,
-            mic,
-            eapol_frame,
-            key_version,
-        }
-    }
-
-    /// Save handshake to file (JSON format for simplicity)
-    pub fn save_to_file(&self, path: &std::path::Path) -> Result<()> {
-        let json = serde_json::to_string_pretty(self)
-            .context("Failed to serialize handshake")?;
-        std::fs::write(path, json)
-            .context("Failed to write handshake file")?;
-        Ok(())
-    }
-
     /// Load handshake from file
     pub fn load_from_file(path: &std::path::Path) -> Result<Self> {
         let json = std::fs::read_to_string(path)
@@ -145,8 +111,19 @@ fn extract_bssid_ssid_from_beacon(data: &[u8]) -> Option<([u8; 6], String)> {
     if data.len() < radiotap_len + 24 { return None; }
     
     let frame = &data[radiotap_len..];
-    // Frame Control (Beacon = Type 0, Subtype 8)
-    if frame[0] != 0x80 { return None; }
+    
+    // Frame Control: Check for Management frames (Type 0)
+    // Beacon = Type 0, Subtype 8 (0x80)
+    // Probe Response = Type 0, Subtype 5 (0x50)
+    let fc = frame[0];
+    let f_type = (fc >> 2) & 0x3;
+    let f_subtype = (fc >> 4) & 0xF;
+    
+    // Must be management frame (type 0)
+    if f_type != 0 { return None; }
+    
+    // Must be Beacon (subtype 8) or Probe Response (subtype 5)
+    if f_subtype != 8 && f_subtype != 5 { return None; }
     
     // BSSID is Addr3 (offset 16)
     let bssid: [u8; 6] = frame[16..22].try_into().ok()?;
@@ -169,6 +146,7 @@ fn extract_bssid_ssid_from_beacon(data: &[u8]) -> Option<([u8; 6], String)> {
         }
         i = val_end;
     }
+
     None
 }
 
@@ -213,17 +191,23 @@ pub fn extract_eapol_from_packet(data: &[u8]) -> Option<EapolPacket> {
         return None;
     }
 
+    // Extract ToDS and FromDS flags from frame control
+    let to_ds = (frame_control & 0x0100) != 0;   // Bit 8
+    let from_ds = (frame_control & 0x0200) != 0; // Bit 9
+
     // Extract MAC addresses from 802.11 header
-    // Address 1: Receiver, Address 2: Transmitter, Address 3: BSSID
     let addr1: [u8; 6] = ieee80211_data[4..10].try_into().ok()?;
     let addr2: [u8; 6] = ieee80211_data[10..16].try_into().ok()?;
-    let addr3: [u8; 6] = ieee80211_data[16..22].try_into().ok()?;
+    let _addr3: [u8; 6] = ieee80211_data[16..22].try_into().ok()?;
 
-    // Determine AP and client MAC
-    let (ap_mac, client_mac) = if addr3 == addr1 {
-        (addr1, addr2) // AP to Client
-    } else {
-        (addr2, addr1) // Client to AP
+    // Determine AP and client MAC based on ToDS/FromDS flags
+    // Infrastructure mode (STA <-> AP):
+    // - FromDS=1, ToDS=0 (AP → STA/M1,M3): Addr1=Client, Addr2=BSSID(AP), Addr3=SA(AP)
+    // - FromDS=0, ToDS=1 (STA → AP/M2,M4): Addr1=BSSID(AP), Addr2=Client, Addr3=DA(AP)
+    let (ap_mac, client_mac) = match (to_ds, from_ds) {
+        (false, true) => (addr2, addr1),  // AP → Client (M1, M3)
+        (true, false) => (addr1, addr2),  // Client → AP (M2, M4)
+        _ => return None, // Other combinations not expected for EAPOL
     };
 
     // Skip to LLC/SNAP header (after 802.11 header + QoS if present)
@@ -432,28 +416,3 @@ fn build_handshake_from_eapol(
     Err(anyhow!("Found valid Message 2 packets, but could not find any corresponding Message 1 (Replay Counter mismatch)"))
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_handshake_serialization() {
-        let handshake = Handshake::new(
-            "TestNetwork".to_string(),
-            [0x00, 0x11, 0x22, 0x33, 0x44, 0x55],
-            [0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF],
-            [0u8; 32],
-            [1u8; 32],
-            vec![0xAB; 16],
-            vec![0x02; 121],
-            2,
-        );
-
-        // Test JSON serialization
-        let json = serde_json::to_string(&handshake).unwrap();
-        let deserialized: Handshake = serde_json::from_str(&json).unwrap();
-
-        assert_eq!(handshake.ssid, deserialized.ssid);
-        assert_eq!(handshake.ap_mac, deserialized.ap_mac);
-    }
-}

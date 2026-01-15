@@ -158,53 +158,28 @@ fn prf_512(key: &[u8], prefix: &[u8], data: &[u8]) -> [u8; 64] {
 #[inline]
 fn kdf_sha256(key: &[u8], label: &[u8], context: &[u8]) -> [u8; 64] {
     let mut result = [0u8; 64];
-    let bits: u16 = 48 * 8; // Requesting 48 bytes (384 bits) usually, but let's fill 64 to mimic prf_512 return
-    
-    // IEEE 802.11w-2009:
-    // KDF(Key, Label, Context, Length)
-    // R = ""
-    // Iterations = ceil(Length / 256)
-    // For i = 1 to Iterations:
-    //     R = R || HMAC-SHA256(Key, i || Label || Context || Length)
-    
-    // We want 64 bytes, 64*8 = 512 bits. Ceil(512/256) = 2 rounds.
-    let iterations: u16 = 2; // 2 * 32 bytes = 64 bytes
-    let length_bits: u16 = 512; 
 
-    // Build internal buffer for HMAC input: i (2 bytes? no, 16-bit counter? No, "a non-negative integer")
-    // 802.11 definitions usually say:
-    // i: a counter, ... represented as a 16-bit integer ... ?
-    // Check RFC or Standard.
-    // 802.11-2012, 11.6.1.7.2 KDF
-    // i is a 16-bit integer (little endian usually? No, just says "i").
-    // Actually, usually it's just `i` (loop counter).
-    // Let's implement based on standard practice for WPA2-SHA256.
-    
-    // Actually standard KDF uses:
-    // i (16-bit) || Label || Context || Length (16-bit)
-    
+    // IEEE 802.11w-2009: KDF-SHA256
+    // Generate 64 bytes (512 bits) using 2 iterations
+    let iterations: u16 = 2;
+    let length_bits: u16 = 512;
+
     for i in 1..=iterations {
-       let mut mac = HmacSha256::new_from_slice(key).expect("HMAC key");
-       
-       // i (16-bit, typically LE in some, but let's assume standard behavior... wait, usually loop counter is passed as 16-bit LE)
-       // Let's verify against known implementations (e.g. hostapd).
-       // hostapd: sha256_kdf(key, label, data, data_len, buf, len)
-       // loops with `counter` (u16).
-       // Update: counter (LE), label, data, bit_len (LE).
-       
-       mac.update(&i.to_le_bytes());
-       mac.update(label);
-       mac.update(context);
-       mac.update(&length_bits.to_le_bytes());
-       
-       let hash = mac.finalize().into_bytes();
-       
-       let start = ((i - 1) * 32) as usize;
-       let end = start + 32;
-       
-       if end <= 64 {
-           result[start..end].copy_from_slice(&hash);
-       }
+        let mut mac = HmacSha256::new_from_slice(key).expect("HMAC key");
+
+        // KDF format: counter (LE) || label || context || length (LE)
+        mac.update(&i.to_le_bytes());
+        mac.update(label);
+        mac.update(context);
+        mac.update(&length_bits.to_le_bytes());
+
+        let hash = mac.finalize().into_bytes();
+        let start = ((i - 1) * 32) as usize;
+        let end = start + 32;
+
+        if end <= 64 {
+            result[start..end].copy_from_slice(&hash);
+        }
     }
 
     result

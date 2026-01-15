@@ -16,7 +16,7 @@ indicatif = "0.17"
 colored = "2.1"
 num_cpus = "1.16"
 parking_lot = "0.12"
-log = "0.4"
+regex = "1.10"
 
 # Cryptography for WPA/WPA2 handshake cracking
 pbkdf2 = { version = "0.12", default-features = false, features = ["simple"] }
@@ -30,10 +30,11 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
 # PCAP file parsing
-pcap-parser = "0.15"
 ctrlc = "3.5.1"
-regex = "1.12.2"
 pcap = "2.4.0"
+
+# System calls for macOS
+libc = "0.2"
 
 [profile.release]
 opt-level = 3
@@ -43,3 +44,21 @@ strip = true
 panic = "abort"
 overflow-checks = false
 incremental = false
+# Additional performance optimizations
+debug = false
+debug-assertions = false
+rpath = false
+
+# Profile for development with some optimizations
+[profile.dev]
+opt-level = 1
+lto = false
+codegen-units = 256
+incremental = true
+debug = true
+
+# Profile for benchmarking with debug symbols
+[profile.bench]
+inherits = "release"
+debug = true
+strip = false

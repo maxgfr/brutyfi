@@ -1,6 +1,22 @@
 [build]
-# Force native compilation for Apple Silicon (M1/M2/M3)
-target = "aarch64-apple-darwin"
+# Universal optimizations for all platforms
+# No forced target - adapts to your system automatically
 
+[target.'cfg(all())']
+rustflags = [
+    # CPU-specific optimizations for native architecture
+    "-C", "target-cpu=native",
+]
+
+# ARM64 optimizations (Apple Silicon M1/M2/M3)
 [target.aarch64-apple-darwin]
-rustflags = ["-C", "target-cpu=native"]
+rustflags = [
+    # Use Apple M1 as baseline instead of native to avoid x86 features during cross-compilation
+    "-C", "target-cpu=apple-m1",
+]
+
+# x86_64 optimizations (Intel Macs)
+[target.x86_64-apple-darwin]
+rustflags = [
+    "-C", "target-cpu=native",
+]

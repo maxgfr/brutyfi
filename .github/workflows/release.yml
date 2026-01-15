@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 permissions:
   contents: write
@@ -116,15 +116,6 @@ jobs:
           #### From source
           \`\`\`bash
           cargo install --git https://github.com/maxgfr/bruteforce-wifi --tag $VERSION
-          \`\`\`
-
-          ### 🚀 Quick Start
-          \`\`\`bash
-          # List available networks
-          sudo bruteforce-wifi list
-
-          # Target specific network with numeric attack (8 digits)
-          sudo bruteforce-wifi --ssid "TP-Link_5GHz" numeric --min 8 --max 8
           \`\`\`
 
           ### ✅ Checksums

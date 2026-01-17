@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.0](https://github.com/maxgfr/bruteforce-wifi/compare/v1.1.0...v1.2.0) (2026-01-17)
+
+
+### ✨ Features
+
+* Enhance handshake loading with panic protection in cracking functions ([2944092](https://github.com/maxgfr/bruteforce-wifi/commit/29440929111b7eb85fcd5bb1e12cbec171d1ffee))
+* Implement optimized background workers for password cracking ([e0257c1](https://github.com/maxgfr/bruteforce-wifi/commit/e0257c1dc11e0e7b33b603b213940c50d93de50c))
+
 ## [1.1.0](https://github.com/maxgfr/bruteforce-wifi/compare/v1.0.0...v1.1.0) (2026-01-16)
 
 

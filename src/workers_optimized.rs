@@ -116,23 +116,22 @@ fn crack_wordlist_blocking(
             // Time-based progress: update every 1 second
             let elapsed_ms = start.elapsed().as_millis() as u64;
             let last = last_update.load(Ordering::Relaxed);
-            if elapsed_ms >= last + 1000 {
-                if last_update
+            if elapsed_ms >= last + 1000
+                && last_update
                     .compare_exchange(last, elapsed_ms, Ordering::Relaxed, Ordering::Relaxed)
                     .is_ok()
-                {
-                    let elapsed_secs = elapsed_ms as f64 / 1000.0;
-                    let rate = if elapsed_secs > 0.0 {
-                        current as f64 / elapsed_secs
-                    } else {
-                        0.0
-                    };
-                    let _ = progress_tx.send(CrackProgress::Progress {
-                        current,
-                        total,
-                        rate,
-                    });
-                }
+            {
+                let elapsed_secs = elapsed_ms as f64 / 1000.0;
+                let rate = if elapsed_secs > 0.0 {
+                    current as f64 / elapsed_secs
+                } else {
+                    0.0
+                };
+                let _ = progress_tx.send(CrackProgress::Progress {
+                    current,
+                    total,
+                    rate,
+                });
             }
 
             if bruteforce_wifi::verify_password(
@@ -280,23 +279,22 @@ fn crack_numeric_blocking(
                 // Time-based progress: update every 1 second
                 let elapsed_ms = start.elapsed().as_millis() as u64;
                 let last = last_update_ref.load(Ordering::Relaxed);
-                if elapsed_ms >= last + 1000 {
-                    if last_update_ref
+                if elapsed_ms >= last + 1000
+                    && last_update_ref
                         .compare_exchange(last, elapsed_ms, Ordering::Relaxed, Ordering::Relaxed)
                         .is_ok()
-                    {
-                        let elapsed_secs = elapsed_ms as f64 / 1000.0;
-                        let rate = if elapsed_secs > 0.0 {
-                            current as f64 / elapsed_secs
-                        } else {
-                            0.0
-                        };
-                        let _ = progress_tx.send(CrackProgress::Progress {
-                            current,
-                            total,
-                            rate,
-                        });
-                    }
+                {
+                    let elapsed_secs = elapsed_ms as f64 / 1000.0;
+                    let rate = if elapsed_secs > 0.0 {
+                        current as f64 / elapsed_secs
+                    } else {
+                        0.0
+                    };
+                    let _ = progress_tx.send(CrackProgress::Progress {
+                        current,
+                        total,
+                        rate,
+                    });
                 }
 
                 if bruteforce_wifi::verify_password(

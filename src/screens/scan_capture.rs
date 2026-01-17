@@ -42,6 +42,7 @@ pub struct ScanCaptureScreen {
 
     // Capture state
     pub target_network: Option<WifiNetwork>,
+    #[allow(dead_code)]
     pub interface: String,
     pub output_file: String,
     pub is_capturing: bool,
@@ -51,6 +52,7 @@ pub struct ScanCaptureScreen {
 
     // Shared
     pub error_message: Option<String>,
+    #[allow(dead_code)]
     pub log_messages: Vec<String>,
 }
 

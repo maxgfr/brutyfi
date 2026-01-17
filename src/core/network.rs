@@ -537,10 +537,16 @@ pub fn capture_traffic(options: CaptureOptions) -> Result<()> {
     .ok();
 
     // Open capture in monitor mode
-    let mut cap = Capture::from_device(interface)
+    let mut cap_builder = Capture::from_device(interface)
         .context("Failed to find device")?
-        .promisc(true)
-        .rfmon(true) // Critical for monitor mode
+        .promisc(true);
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        cap_builder = cap_builder.rfmon(true); // Critical for monitor mode
+    }
+
+    let mut cap = cap_builder
         .timeout(100) // 100ms timeout for read
         .open()
         .map_err(|e| anyhow!("Failed to open capture device: {}", e))?;
@@ -1412,10 +1418,16 @@ pub fn scan_pcap(interface: &str) -> Result<Vec<WifiNetwork>> {
     let mut networks_map: HashMap<String, WifiNetwork> = HashMap::new();
 
     // Attempt to open monitor mode
-    let mut cap = Capture::from_device(interface)
+    let mut cap_builder = Capture::from_device(interface)
         .context("Failed to open device for pcap scan")?
-        .promisc(true)
-        .rfmon(true)
+        .promisc(true);
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        cap_builder = cap_builder.rfmon(true);
+    }
+
+    let mut cap = cap_builder
         .timeout(100) // Short timeout for responsive scanning
         .snaplen(2000) // Only need headers
         .open()

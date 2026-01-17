@@ -57,17 +57,17 @@ jobs:
   build-macos:
     name: Build macOS (DMG)
     needs: release
-    if: needs.release.outputs.new_release_published == 'true'
+    # if: needs.release.outputs.new_release_published == 'true'
     runs-on: macos-latest
     strategy:
       matrix:
         target:
-          - aarch64-apple-darwin  # Apple Silicon
-          - x86_64-apple-darwin   # Intel
+          - aarch64-apple-darwin # Apple Silicon
+          - x86_64-apple-darwin # Intel
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: v${{ needs.release.outputs.new_release_version }}
+          ref: ${{ needs.release.outputs.new_release_published == 'true' && format('v{0}', needs.release.outputs.new_release_version) || '' }}
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -83,6 +83,7 @@ jobs:
         run: |
           APP_NAME="WiFi Bruteforce"
           VERSION="${{ needs.release.outputs.new_release_version }}"
+          if [ -z "$VERSION" ]; then VERSION="0.0.0-dev.${{ github.run_number }}"; fi
           TARGET="${{ matrix.target }}"
           APP_DIR="${APP_NAME}.app"
 
@@ -133,6 +134,7 @@ jobs:
         run: |
           APP_NAME="WiFi Bruteforce"
           VERSION="${{ needs.release.outputs.new_release_version }}"
+          if [ -z "$VERSION" ]; then VERSION="0.0.0-dev.${{ github.run_number }}"; fi
           TARGET="${{ matrix.target }}"
           ARCH="${{ matrix.target == 'aarch64-apple-darwin' && 'arm64' || 'x86_64' }}"
           DMG_NAME="WiFi-Bruteforce-${VERSION}-macOS-${ARCH}.dmg"
@@ -155,11 +157,14 @@ jobs:
         run: |
           TARGET="${{ matrix.target }}"
           ARCH="${{ matrix.target == 'aarch64-apple-darwin' && 'arm64' || 'x86_64' }}"
-          DMG_NAME="WiFi-Bruteforce-${{ needs.release.outputs.new_release_version }}-macOS-${ARCH}.dmg"
+          VERSION="${{ needs.release.outputs.new_release_version }}"
+          if [ -z "$VERSION" ]; then VERSION="0.0.0-dev.${{ github.run_number }}"; fi
+          DMG_NAME="WiFi-Bruteforce-${VERSION}-macOS-${ARCH}.dmg"
           shasum -a 256 "${DMG_NAME}" > "${DMG_NAME}.sha256"
 
       - name: Upload to Release
         uses: softprops/action-gh-release@v2
+        if: needs.release.outputs.new_release_published == 'true'
         with:
           tag_name: v${{ needs.release.outputs.new_release_version }}
           files: |
@@ -169,12 +174,12 @@ jobs:
   build-windows:
     name: Build Windows (EXE)
     needs: release
-    if: needs.release.outputs.new_release_published == 'true'
+    # if: needs.release.outputs.new_release_published == 'true'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: v${{ needs.release.outputs.new_release_version }}
+          ref: ${{ needs.release.outputs.new_release_published == 'true' && format('v{0}', needs.release.outputs.new_release_version) || '' }}
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -192,6 +197,7 @@ jobs:
       - name: Create installer with WiX
         run: |
           $VERSION = "${{ needs.release.outputs.new_release_version }}"
+          if ([string]::IsNullOrEmpty($VERSION)) { $VERSION = "0.0.0-dev.${{ github.run_number }}" }
           $INSTALLER_NAME = "WiFi-Bruteforce-${VERSION}-Windows-x64.msi"
 
           # Simple ZIP for now (can be enhanced with WiX later)
@@ -200,11 +206,13 @@ jobs:
       - name: Generate SHA256
         run: |
           $VERSION = "${{ needs.release.outputs.new_release_version }}"
+          if ([string]::IsNullOrEmpty($VERSION)) { $VERSION = "0.0.0-dev.${{ github.run_number }}" }
           $FILE = "WiFi-Bruteforce-${VERSION}-Windows-x64.zip"
           Get-FileHash -Algorithm SHA256 -Path $FILE | ForEach-Object { "$($_.Hash.ToLower())  $FILE" } | Out-File -FilePath "${FILE}.sha256"
 
       - name: Upload to Release
         uses: softprops/action-gh-release@v2
+        if: needs.release.outputs.new_release_published == 'true'
         with:
           tag_name: v${{ needs.release.outputs.new_release_version }}
           files: |

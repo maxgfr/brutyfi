@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.2](https://github.com/maxgfr/bruteforce-wifi/compare/v1.4.1...v1.4.2) (2026-01-17)
+
+
+### 🐛 Bug Fixes
+
+* replace filter and next with find for improved readability in digit extraction ([0357ecc](https://github.com/maxgfr/bruteforce-wifi/commit/0357ecc05545b5fd8501076c0d2cdf6793c83c1b))
+
 ## [1.4.1](https://github.com/maxgfr/bruteforce-wifi/compare/v1.4.0...v1.4.1) (2026-01-17)
 
 

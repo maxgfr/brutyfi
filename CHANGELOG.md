@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.2](https://github.com/maxgfr/bruteforce-wifi/compare/v1.3.1...v1.3.2) (2026-01-17)
+
+
+### ♻️ Code Refactoring
+
+* **ci:** streamline Clippy command and improve capture logic for non-Windows systems ([5863eb5](https://github.com/maxgfr/bruteforce-wifi/commit/5863eb50c4f6bb28ab282554fb9a5b78873df3e7))
+
 ## [1.3.1](https://github.com/maxgfr/bruteforce-wifi/compare/v1.3.0...v1.3.1) (2026-01-17)
 
 

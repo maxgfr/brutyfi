@@ -1,6 +1,6 @@
 [package]
 name = "bruteforce-wifi"
-version = "1.4.0"
+version = "1.4.1"
 edition = "2021"
 description = "Optimized WiFi bruteforce tool with wordlist and numeric combination support"
 license = "MIT"

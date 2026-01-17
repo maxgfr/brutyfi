@@ -414,7 +414,7 @@ dependencies = [
 
 [[package]]
 name = "bruteforce-wifi"
-version = "1.4.0"
+version = "1.4.1"
 dependencies = [
  "aes",
  "anyhow",

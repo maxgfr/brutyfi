@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.1](https://github.com/maxgfr/bruteforce-wifi/compare/v1.4.0...v1.4.1) (2026-01-17)
+
+
+### 🐛 Bug Fixes
+
+* improve app bundle signing process and update capture instructions for macOS ([e6f68a0](https://github.com/maxgfr/bruteforce-wifi/commit/e6f68a04e91905c96c8ebefdbfe2fee0bbec970f))
+
 ## [1.4.0](https://github.com/maxgfr/bruteforce-wifi/compare/v1.3.3...v1.4.0) (2026-01-17)
 
 

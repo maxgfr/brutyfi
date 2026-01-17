@@ -1237,102 +1237,125 @@ fn find_airport_path() -> Option<String> {
 
 /// Helper to run the Embedded Swift scanner
 fn scan_networks_swift() -> Result<Vec<WifiNetwork>> {
-    use std::io::Write;
-
-    // Create a temporary swift script that uses CWInterface.scanForNetworks
-    // NOTE: On macOS 10.15+, this requires Location Services permission for the app
+    // Simple, non-blocking Swift script that just scans without permission requests
+    // Permission requests must be done by the main app binary with proper entitlements
     let script_content = r#"
 import CoreWLAN
 import Foundation
-import CoreLocation
 
-class WifiScanner {
-    func scan() {
-        let client = CWWiFiClient.shared()
-        guard let interface = client.interface() else {
-            print("[]")
-            return
-        }
+// Get WiFi interface
+let client = CWWiFiClient.shared()
+guard let interface = client.interface() else {
+    print("{\"error\": \"no_interface\"}")
+    exit(0)
+}
 
-        do {
-            let networks = try interface.scanForNetworks(withSSID: nil)
-            var result: [[String: String]] = []
+do {
+    let networks = try interface.scanForNetworks(withSSID: nil)
+    var result: [[String: Any]] = []
 
-            for network in networks {
-                var netInfo: [String: String] = [:]
-                // SSID may be nil for hidden networks
-                netInfo["ssid"] = network.ssid ?? "<Hidden>"
-                // BSSID may be nil if Location Services permission is not granted
-                // This is a macOS privacy feature introduced in macOS 10.15+
-                netInfo["bssid"] = network.bssid ?? ""
-                netInfo["channel"] = String(network.wlanChannel?.channelNumber ?? 0)
-                netInfo["rssi"] = String(network.rssiValue)
-                netInfo["security"] = securityString(network)
-                result.append(netInfo)
-            }
+    for network in networks {
+        var netInfo: [String: Any] = [:]
+        netInfo["ssid"] = network.ssid ?? "<Hidden>"
+        netInfo["bssid"] = network.bssid ?? ""
+        netInfo["channel"] = network.wlanChannel?.channelNumber ?? 0
+        netInfo["rssi"] = network.rssiValue
 
-            let jsonData = try JSONSerialization.data(withJSONObject: result, options: [])
-            if let jsonString = String(data: jsonData, encoding: .utf8) {
-                print(jsonString)
-            }
-        } catch {
-            print("[]")
-        }
-    }
-
-    func securityString(_ network: CWNetwork) -> String {
+        // Build security string
         var sec = ""
         if network.supportsSecurity(.wpa3Personal) { sec += "WPA3 " }
         if network.supportsSecurity(.wpa2Personal) { sec += "WPA2 " }
         if network.supportsSecurity(.wpaPersonal) { sec += "WPA " }
         if network.supportsSecurity(.dynamicWEP) { sec += "WEP " }
-        if network.supportsSecurity(.none) { sec += "None " }
+        if network.supportsSecurity(.none) { sec += "Open " }
+        netInfo["security"] = sec.trimmingCharacters(in: .whitespaces)
 
-        return sec.trimmingCharacters(in: .whitespaces)
+        result.append(netInfo)
     }
-}
 
-let scanner = WifiScanner()
-scanner.scan()
+    let jsonData = try JSONSerialization.data(withJSONObject: ["networks": result], options: [])
+    if let jsonString = String(data: jsonData, encoding: .utf8) {
+        print(jsonString)
+    }
+} catch let error {
+    print("{\"error\": \"\(error.localizedDescription)\"}")
+}
 "#;
 
     let script_path = "/tmp/wifi_scan.swift";
-    let mut file = std::fs::File::create(script_path)?;
-    file.write_all(script_content.as_bytes())?;
 
-    // Execute swift script
+    // Write script to temp file
+    if let Err(e) = std::fs::write(script_path, script_content) {
+        return Err(anyhow!("Failed to write Swift script: {}", e));
+    }
+
+    // Execute swift script with timeout
     let output = Command::new("swift")
         .arg(script_path)
         .output()
-        .context("Failed to execute swift scanner")?;
+        .context("Failed to execute Swift scanner. Is Xcode Command Line Tools installed?")?;
 
-    if !output.status.success() {
-        return Err(anyhow!("Swift script failed"));
+    // Parse stdout even if exit status is non-zero (script might print error JSON)
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    // Check for empty output
+    if stdout.trim().is_empty() {
+        if !stderr.is_empty() {
+            return Err(anyhow!("Swift scanner error: {}", stderr.trim()));
+        }
+        return Err(anyhow!("Swift scanner returned empty output"));
     }
 
-    let stdout = str::from_utf8(&output.stdout)?;
+    // Parse JSON response
+    #[derive(Deserialize)]
+    struct SwiftResponse {
+        networks: Option<Vec<SwiftNetwork>>,
+        error: Option<String>,
+    }
 
-    // Parse JSON
-    // We need a struct for this
     #[derive(Deserialize)]
     struct SwiftNetwork {
         ssid: String,
         bssid: String,
-        channel: String,
-        rssi: String,
+        channel: serde_json::Value, // Can be int or string
+        rssi: serde_json::Value,    // Can be int or string
         security: String,
     }
 
-    let swift_networks: Vec<SwiftNetwork> = serde_json::from_str(stdout).unwrap_or(Vec::new());
+    let response: SwiftResponse = serde_json::from_str(&stdout)
+        .map_err(|e| anyhow!("Failed to parse Swift scanner output: {} (output: {})", e, stdout))?;
+
+    // Check for error
+    if let Some(error) = response.error {
+        return Err(anyhow!("WiFi scan failed: {}", error));
+    }
+
+    // Extract networks
+    let swift_networks = response.networks.unwrap_or_default();
 
     let networks: Vec<WifiNetwork> = swift_networks
         .into_iter()
-        .map(|n| WifiNetwork {
-            ssid: n.ssid,
-            bssid: n.bssid,
-            channel: n.channel,
-            signal_strength: n.rssi,
-            security: n.security,
+        .map(|n| {
+            // Handle channel/rssi which might be int or string
+            let channel = match n.channel {
+                serde_json::Value::Number(num) => num.to_string(),
+                serde_json::Value::String(s) => s,
+                _ => "0".to_string(),
+            };
+            let rssi = match n.rssi {
+                serde_json::Value::Number(num) => num.to_string(),
+                serde_json::Value::String(s) => s,
+                _ => "-100".to_string(),
+            };
+
+            WifiNetwork {
+                ssid: n.ssid,
+                bssid: n.bssid,
+                channel,
+                signal_strength: rssi,
+                security: n.security,
+            }
         })
         .collect();
 

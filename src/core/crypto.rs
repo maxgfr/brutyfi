@@ -243,7 +243,9 @@ pub fn verify_password(
     let ptk = calculate_ptk(&pmk, ap_mac, client_mac, anonce, snonce, key_version);
 
     // Step 3: Extract KCK (first 16 bytes of PTK)
-    let kck: [u8; 16] = ptk[0..16].try_into().unwrap();
+    // PTK is always 64 bytes, so this should never fail
+    let mut kck = [0u8; 16];
+    kck.copy_from_slice(&ptk[0..16]);
 
     // Step 4: Calculate MIC
     let calculated_mic = calculate_mic(&kck, eapol_frame, key_version);

@@ -128,11 +128,13 @@ impl BruteforceApp {
                 self.capture_screen.available_networks = self.scan_screen.networks.clone();
 
                 if let Some(idx) = self.scan_screen.selected_network {
-                    let network = self.scan_screen.networks[idx].clone();
-                    self.capture_screen.target_network = Some(network);
-                    self.capture_screen.handshake_progress = HandshakeProgress::default();
-                    self.capture_screen.handshake_complete = false;
-                    self.capture_screen.error_message = None;
+                    // Safe access with bounds check
+                    if let Some(network) = self.scan_screen.networks.get(idx) {
+                        self.capture_screen.target_network = Some(network.clone());
+                        self.capture_screen.handshake_progress = HandshakeProgress::default();
+                        self.capture_screen.handshake_complete = false;
+                        self.capture_screen.error_message = None;
+                    }
                 }
                 self.screen = Screen::Capture;
                 Task::none()
@@ -463,14 +465,11 @@ impl BruteforceApp {
                         }
                         self.crack_screen.total_attempts = total;
 
-                        // Spawn the crack task in the background without blocking the UI
-                        // The progress will be sent via the channel and polled by the Tick subscription
-                        tokio::spawn(async move {
-                            let _ =
-                                workers_optimized::crack_numeric_optimized(params, state, tx).await;
-                        });
-
-                        Task::none()
+                        // Use Task::perform to run in background - this integrates with Iced's async runtime
+                        Task::perform(
+                            workers_optimized::crack_numeric_optimized(params, state, tx),
+                            Message::CrackProgress,
+                        )
                     }
                     CrackMethod::Wordlist => {
                         let params = WordlistCrackParams {
@@ -484,14 +483,11 @@ impl BruteforceApp {
                             threads: self.crack_screen.threads,
                         };
 
-                        // Spawn the crack task in the background without blocking the UI
-                        // The progress will be sent via the channel and polled by the Tick subscription
-                        tokio::spawn(async move {
-                            let _ = workers_optimized::crack_wordlist_optimized(params, state, tx)
-                                .await;
-                        });
-
-                        Task::none()
+                        // Use Task::perform to run in background - this integrates with Iced's async runtime
+                        Task::perform(
+                            workers_optimized::crack_wordlist_optimized(params, state, tx),
+                            Message::CrackProgress,
+                        )
                     }
                 }
             }

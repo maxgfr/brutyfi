@@ -46,12 +46,12 @@ rfd = "0.15"
 opt-level = 3
 lto = "fat"
 codegen-units = 1
-strip = true
-panic = "abort"
+strip = false
+panic = "unwind"
 overflow-checks = false
 incremental = false
-# Additional performance optimizations
-debug = false
+# Keep some debug info for error messages
+debug = 1
 debug-assertions = false
 rpath = false
 

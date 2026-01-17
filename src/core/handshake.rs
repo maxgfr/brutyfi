@@ -252,8 +252,14 @@ pub fn extract_eapol_from_packet(data: &[u8]) -> Option<EapolPacket> {
     let key_version = (key_info & 0x07) as u8;
 
     // Replay Counter (8 bytes) at offset 9
-    let replay_counter_bytes = &eapol_data[9..17];
-    let replay_counter = u64::from_be_bytes(replay_counter_bytes.try_into().unwrap());
+    if eapol_data.len() < 17 {
+        return None;
+    }
+    let replay_counter_bytes: [u8; 8] = match eapol_data[9..17].try_into() {
+        Ok(bytes) => bytes,
+        Err(_) => return None, // Malformed packet
+    };
+    let replay_counter = u64::from_be_bytes(replay_counter_bytes);
 
     // Determine message type from key_info flags
     let key_mic_flag = (key_info & 0x100) != 0;
@@ -356,12 +362,23 @@ fn build_handshake_from_eapol(
         }); // CRITICAL: Match replay counter
 
         if let Some(m1) = m1_opt {
-            // Found a valid pair!
+            // Found a valid pair! Extract values with proper error handling
             let ap_mac = m1.ap_mac;
             let client_mac = m2.client_mac;
-            let anonce = m1.anonce.unwrap();
-            let snonce = m2.snonce.unwrap();
-            let mic = m2.mic.clone().unwrap();
+
+            // These should always be Some due to filter, but handle gracefully
+            let anonce = match m1.anonce {
+                Some(n) => n,
+                None => continue, // Skip to next M2 candidate
+            };
+            let snonce = match m2.snonce {
+                Some(n) => n,
+                None => continue,
+            };
+            let mic = match &m2.mic {
+                Some(m) => m.clone(),
+                None => continue,
+            };
             let key_version = m2.key_version;
 
             // Use M2 EAPOL frame with MIC zeroed

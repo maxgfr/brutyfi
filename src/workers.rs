@@ -170,6 +170,47 @@ pub async fn capture_async(
     let ssid = params.ssid.clone();
     let bssid = params.bssid.clone();
 
+    // Pre-flight checks
+    let _ = progress_tx.send(CaptureProgress::Log(format!(
+        "Checking interface {}...",
+        interface
+    )));
+
+    // Verify interface exists
+    let interface_check = interface.clone();
+    let check_result = tokio::task::spawn_blocking(move || {
+        use pcap::Device;
+        let devices = Device::list().unwrap_or_default();
+        devices.iter().any(|d| d.name == interface_check)
+    })
+    .await;
+
+    match check_result {
+        Ok(true) => {
+            let _ = progress_tx.send(CaptureProgress::Log(format!(
+                "Interface {} found",
+                interface
+            )));
+        }
+        Ok(false) => {
+            let error_msg = format!(
+                "Interface '{}' not found. Available interfaces: run 'ifconfig' to list them. On macOS, WiFi is usually 'en0'.",
+                interface
+            );
+            let _ = progress_tx.send(CaptureProgress::Error(error_msg.clone()));
+            return CaptureProgress::Error(error_msg);
+        }
+        Err(e) => {
+            let error_msg = format!("Failed to check interfaces: {}", e);
+            let _ = progress_tx.send(CaptureProgress::Error(error_msg.clone()));
+            return CaptureProgress::Error(error_msg);
+        }
+    }
+
+    let _ = progress_tx.send(CaptureProgress::Log(
+        "Attempting to enable monitor mode...".to_string(),
+    ));
+
     // Run capture in blocking thread
     let result = tokio::task::spawn_blocking(move || {
         // Build capture options inside the blocking thread
@@ -182,7 +223,30 @@ pub async fn capture_async(
             duration: None,  // Run until stopped
             no_deauth: true, // macOS doesn't support deauth
         };
-        bruteforce_wifi::capture_traffic(options)
+
+        // Try to capture, with better error messages
+        match bruteforce_wifi::capture_traffic(options) {
+            Ok(()) => Ok(()),
+            Err(e) => {
+                let error_str = e.to_string();
+                // Provide more helpful error messages
+                if error_str.contains("permission denied") || error_str.contains("Operation not permitted") {
+                    Err(anyhow::anyhow!(
+                        "Permission denied. Make sure to run with sudo: sudo ./target/release/bruteforce-wifi"
+                    ))
+                } else if error_str.contains("monitor mode") || error_str.contains("rfmon") {
+                    Err(anyhow::anyhow!(
+                        "Monitor mode not supported on this interface. On macOS, you may need to disconnect from WiFi first (Option+Click WiFi icon > Disconnect)."
+                    ))
+                } else if error_str.contains("device") || error_str.contains("interface") {
+                    Err(anyhow::anyhow!(
+                        "Failed to open interface. Try: 1) Run with sudo, 2) Disconnect from WiFi, 3) Check if en0 is the correct interface."
+                    ))
+                } else {
+                    Err(e)
+                }
+            }
+        }
     })
     .await;
 
@@ -197,17 +261,24 @@ pub async fn capture_async(
             }
         }
         Ok(Err(e)) => {
-            let _ = progress_tx.send(CaptureProgress::Log(format!("Capture error: {}", e)));
-            CaptureProgress::Error(e.to_string())
+            let error_msg = e.to_string();
+            let _ = progress_tx.send(CaptureProgress::Log(format!(
+                "Capture error: {}",
+                error_msg
+            )));
+            CaptureProgress::Error(error_msg)
         }
         Err(e) => {
-            let _ = progress_tx.send(CaptureProgress::Log(format!("Task error: {}", e)));
-            CaptureProgress::Error(e.to_string())
+            let error_msg = format!("Task failed: {}", e);
+            let _ = progress_tx.send(CaptureProgress::Log(error_msg.clone()));
+            CaptureProgress::Error(error_msg)
         }
     }
 }
 
 /// Run wordlist crack in background with progress updates
+/// Note: This function is kept for reference but crack_wordlist_optimized is preferred
+#[allow(dead_code)]
 pub async fn crack_wordlist_async(
     params: WordlistCrackParams,
     state: Arc<CrackState>,
@@ -359,6 +430,8 @@ pub async fn crack_wordlist_async(
 }
 
 /// Run numeric crack in background with progress updates
+/// Note: This function is kept for reference but crack_numeric_optimized is preferred
+#[allow(dead_code)]
 pub async fn crack_numeric_async(
     params: NumericCrackParams,
     state: Arc<CrackState>,

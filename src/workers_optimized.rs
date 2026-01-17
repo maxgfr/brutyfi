@@ -16,10 +16,8 @@ pub async fn crack_wordlist_optimized(
     progress_tx: tokio::sync::mpsc::UnboundedSender<CrackProgress>,
 ) -> CrackProgress {
     // Run entire crack process in blocking thread to avoid UI freeze
-    match tokio::task::spawn_blocking(move || {
-        crack_wordlist_blocking(params, state, progress_tx)
-    })
-    .await
+    match tokio::task::spawn_blocking(move || crack_wordlist_blocking(params, state, progress_tx))
+        .await
     {
         Ok(result) => result,
         Err(e) => CrackProgress::Error(format!("Task panicked: {}", e)),
@@ -166,10 +164,8 @@ pub async fn crack_numeric_optimized(
     progress_tx: tokio::sync::mpsc::UnboundedSender<CrackProgress>,
 ) -> CrackProgress {
     // Run entire crack process in blocking thread to avoid UI freeze
-    match tokio::task::spawn_blocking(move || {
-        crack_numeric_blocking(params, state, progress_tx)
-    })
-    .await
+    match tokio::task::spawn_blocking(move || crack_numeric_blocking(params, state, progress_tx))
+        .await
     {
         Ok(result) => result,
         Err(e) => CrackProgress::Error(format!("Task panicked: {}", e)),
@@ -238,9 +234,7 @@ fn crack_numeric_blocking(
             let state_ref = Arc::clone(&state);
 
             let _result = batch.par_iter().find_any(|password| {
-                if found_ref.load(Ordering::Acquire)
-                    || !state_ref.running.load(Ordering::Relaxed)
-                {
+                if found_ref.load(Ordering::Acquire) || !state_ref.running.load(Ordering::Relaxed) {
                     return false;
                 }
 

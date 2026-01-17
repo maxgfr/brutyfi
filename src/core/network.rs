@@ -434,10 +434,20 @@ pub fn capture_traffic(options: CaptureOptions) -> Result<()> {
     // The airport -s scan does not work when the interface is in monitor mode.
     // ========================================================================
 
+    // Debug log for parameters
+    eprintln!("[DEBUG] capture_traffic called with channel: {:?}, ssid: {:?}, bssid: {:?}", 
+              channel, ssid, bssid);
+
     let mut channels_to_scan = Vec::new();
 
     if let Some(target_ssid) = ssid {
-        if channel.is_none() {
+        // User wants to capture a specific SSID
+        if let Some(ch) = channel {
+            // Both SSID and channel specified - use the provided channel directly
+            channels_to_scan.push(ch);
+            println!("ℹ️  Monitoring '{}' on Channel {} (manual)", target_ssid, ch);
+        } else if channel.is_none() {
+            // SSID specified but no channel - auto-detect channels
             println!("🔍 Scanning for all channels (Smart Connect support)...");
             println!("   (Scanning BEFORE enabling monitor mode)");
 

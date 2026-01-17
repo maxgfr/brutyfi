@@ -218,6 +218,29 @@ impl BruteforceApp {
                             .and_then(|s| s.parse::<u32>().ok())
                     });
 
+                    // Check if channel was successfully parsed
+                    if channel.is_none() {
+                        self.scan_capture_screen.error_message = Some(
+                            format!("Could not detect channel from network info (channel field: '{}'). Please rescan.", network.channel)
+                        );
+                        self.scan_capture_screen.is_capturing = false;
+                        return Task::none();
+                    }
+
+                    // Log channel selection
+                    eprintln!(
+                        "[DEBUG] Starting capture on channel: {:?} (raw: '{}')",
+                        channel, network.channel
+                    );
+
+                    // Warn if multiple channels detected
+                    if network.channel.contains(',') {
+                        self.scan_capture_screen.error_message = Some(
+                            format!("Multiple channels detected ({}). Using channel {}. If capture fails, disconnect from WiFi and rescan.", 
+                                network.channel, channel.unwrap())
+                        );
+                    }
+
                     let params = CaptureParams {
                         interface: self.interface.clone(),
                         channel,

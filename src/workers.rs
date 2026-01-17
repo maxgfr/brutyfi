@@ -211,6 +211,18 @@ pub async fn capture_async(
         "Attempting to enable monitor mode...".to_string(),
     ));
 
+    // Log channel information
+    if let Some(ch) = params.channel {
+        let _ = progress_tx.send(CaptureProgress::Log(format!(
+            "Channel {} will be used for capture",
+            ch
+        )));
+    } else {
+        let _ = progress_tx.send(CaptureProgress::Log(
+            "No specific channel set - will scan all channels".to_string(),
+        ));
+    }
+
     // Run capture in blocking thread
     let result = tokio::task::spawn_blocking(move || {
         // Build capture options inside the blocking thread

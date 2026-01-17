@@ -26,7 +26,7 @@ dmg_temp/
 *.sha256
 
 # Capture files
-*.cap
+*.pcap
 *.pcap
 
 # Wordlists

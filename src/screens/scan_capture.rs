@@ -65,7 +65,7 @@ impl Default for ScanCaptureScreen {
             location_services_warning: false,
             target_network: None,
             interface: "en0".to_string(),
-            output_file: "capture.cap".to_string(),
+            output_file: "capture.pcap".to_string(),
             is_capturing: false,
             packets_captured: 0,
             handshake_progress: HandshakeProgress::default(),
@@ -469,13 +469,16 @@ impl ScanCaptureScreen {
                 text("1. macOS: Disconnect from WiFi (Option+Click Wifi -> Disconnect)")
                     .size(10)
                     .color(colors::WARNING),
-                text("2. Start capture below")
+                text("2. Choose output file location")
                     .size(10)
                     .color(colors::TEXT_DIM),
-                text("3. On another device, reconnect to the network")
+                text("3. Start capture below")
                     .size(10)
                     .color(colors::TEXT_DIM),
-                text("4. Handshake will be captured automatically")
+                text("4. On another device, reconnect to the network")
+                    .size(10)
+                    .color(colors::TEXT_DIM),
+                text("5. Handshake will be captured automatically")
                     .size(10)
                     .color(colors::TEXT_DIM),
             ]
@@ -493,6 +496,25 @@ impl ScanCaptureScreen {
             },
             ..Default::default()
         });
+
+        // Output file selector
+        let output_file_section: Element<Message> = container(
+            column![
+                row![
+                    text("Output: ").size(11).color(colors::TEXT_DIM),
+                    text(&self.output_file).size(11).color(colors::TEXT),
+                ]
+                .spacing(5),
+                button(text("Choose Location").size(12))
+                    .padding([6, 12])
+                    .style(theme::secondary_button_style)
+                    .on_press(Message::BrowseCaptureFile),
+            ]
+            .spacing(8),
+        )
+        .padding(10)
+        .style(theme::card_style)
+        .into();
 
         // Control buttons
         let capture_btn = if self.is_capturing {
@@ -537,6 +559,7 @@ impl ScanCaptureScreen {
             content = content.push(error);
         }
 
+        content = content.push(output_file_section);
         content = content.push(instructions);
 
         let mut button_row = row![capture_btn,].spacing(10);

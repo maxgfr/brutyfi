@@ -14,7 +14,7 @@ A high-performance, cross-platform desktop GUI application for testing WPA/WPA2 
 ## ✨ Features
 
 - 🖥️ **Modern Desktop GUI** - Built with Iced framework for smooth UX
-- 🚀 **Blazing Fast** - 5,000-50,000 passwords/sec with Rayon parallelization
+- 🚀 **Blazing Fast** - Multithreading parallelism with Rayon
 - 📡 **WiFi Network Scanning** - Real-time discovery with BSSID/channel detection
 - 🎯 **Handshake Capture** - EAPOL frame analysis with visual progress
 - 🔑 **Dual Attack Modes**:
@@ -46,6 +46,29 @@ curl -LO https://github.com/maxgfr/bruteforce-wifi/releases/latest/download/WiFi
 
 > **Tip**: If the prompt doesn't appear, manually enable in:  
 > `System Settings → Privacy & Security → Location Services → WiFi Bruteforce`
+
+**Running Unsigned Applications on macOS**:
+
+Since this app is not signed with an Apple Developer certificate, you'll need to bypass Gatekeeper:
+
+1. **First launch attempt**: Right-click (or Control-click) the app → Select "Open"
+2. **If you see "damaged" error**:
+
+   ```bash
+   # Remove quarantine attribute
+   xattr -d com.apple.quarantine /Applications/WiFi-Bruteforce.app
+   
+   # If that doesn't work, remove all extended attributes
+   xattr -cr /Applications/WiFi-Bruteforce.app
+   ```
+
+**Alternative: Build from source** (avoids signing issues):
+```bash
+git clone https://github.com/maxgfr/bruteforce-wifi.git
+cd bruteforce-wifi
+cargo build --release
+sudo ./target/release/bruteforce-wifi
+```
 
 ### Windows
 
@@ -88,9 +111,20 @@ Launch the app and click "Scan Networks" to discover nearby WiFi networks with f
 
 #### 2. **Select & Capture**
 
-Select a network → Click "Continue to Capture" → "Start Capture"
+Select a network → Click "Continue to Capture"
+
+**Before capturing:**
+1. **Choose output location**: Click "Choose Location" to save the .pcap file where you want
+   - Default: `capture.pcap` in current directory
+   - Recommended: Save to Documents or Desktop for easy access
+2. **Disconnect from WiFi** (macOS only):
+   - Option+Click WiFi icon → "Disconnect"
+   - This improves capture reliability
+
+Then click "Start Capture"
 
 The app monitors for the WPA/WPA2 4-way handshake:
+
 - ✅ **M1** - ANonce (from AP)
 - ✅ **M2** - SNonce + MIC (from client)
 - 🎉 **Handshake Complete!**
@@ -140,79 +174,6 @@ cargo clippy --all-targets --all-features -- -D warnings
 cargo test
 ```
 
-### Project Structure
-
-```
-src/
-├── main.rs          # GUI entry point
-├── app.rs           # Application state & message handling
-├── theme.rs         # Color palette & styles
-├── workers.rs       # Background async tasks
-├── screens/         # UI screens (scan, capture, crack)
-│   ├── scan.rs
-│   ├── capture.rs
-│   └── crack.rs
-└── core/            # Core library
-    ├── bruteforce.rs  # Password cracking engine
-    ├── crypto.rs      # WPA/WPA2 crypto (PBKDF2, MIC)
-    ├── handshake.rs   # EAPOL parsing
-    ├── network.rs     # WiFi scanning & capture
-    └── password_gen.rs # Parallel password generation
-```
-
-## 📝 Contributing with Semantic Commits
-
-This project uses [Conventional Commits](https://www.conventionalcommits.org/) for automatic versioning:
-
-| Type | Description | Version Bump |
-|------|-------------|--------------|
-| `feat:` | New feature | Minor (1.x.0) |
-| `fix:` | Bug fix | Patch (1.0.x) |
-| `perf:` | Performance improvement | Patch |
-| `docs:` | Documentation | Patch |
-| `BREAKING CHANGE:` | Breaking API change | Major (x.0.0) |
-| `chore:`, `style:`, `refactor:`, `test:` | No release | - |
-
-**Examples:**
-```bash
-git commit -m "feat: add GPU acceleration for PBKDF2"
-git commit -m "fix: resolve memory leak in handshake parser"
-git commit -m "perf: optimize parallel password generation"
-git commit -m "docs: update README with Windows setup"
-```
-
-**Automatic Releases**: When you push semantic commits to `main`, GitHub Actions automatically:
-1. Determines version bump based on commit types
-2. Updates CHANGELOG.md
-3. Creates a GitHub release
-4. Builds & uploads macOS DMG + Windows ZIP binaries
-
-## 🏗️ CI/CD Pipeline
-
-### Continuous Integration (`.github/workflows/ci.yml`)
-
-Runs on every push/PR:
-- ✅ `cargo fmt` - Code formatting check
-- ✅ `cargo clippy` - Lint warnings
-- ✅ `cargo test` - Unit tests
-- ✅ Multi-platform builds (Ubuntu, macOS, Windows)
-
-### Release Automation (`.github/workflows/release.yml`)
-
-Triggers on push to `main` with semantic commits:
-1. **Semantic Analysis** - Determines next version
-2. **macOS Build**:
-   - Apple Silicon (arm64) - Optimized for M-series chips
-   - Intel (x86_64) - Compatibility mode
-   - Creates `.app` bundles with Info.plist
-   - Generates notarized DMG installers
-3. **Windows Build**:
-   - x86_64 with WinPcap support
-   - Creates ZIP archives
-4. **Release Creation**:
-   - Generates CHANGELOG.md
-   - Uploads binaries with SHA256 checksums
-   - Publishes GitHub release with notes
 
 ## 🔒 Security & Legal
 
@@ -233,13 +194,6 @@ Triggers on push to `main` with semantic commits:
 
 **Unauthorized access to computer networks is a criminal offense** in most jurisdictions (CFAA in USA, Computer Misuse Act in UK, etc.). Always obtain explicit written permission before testing.
 
-### Responsible Disclosure
-
-If you discover security vulnerabilities in this tool:
-1. **Do NOT** publicly disclose before contacting maintainers
-2. Email: [security contact info]
-3. Allow reasonable time for a fix before public disclosure
-
 ## 🙏 Acknowledgments
 
 - [Iced](https://github.com/iced-rs/iced) - Cross-platform GUI framework
@@ -250,11 +204,3 @@ If you discover security vulnerabilities in this tool:
 ## 📄 License
 
 [MIT License](LICENSE) - Use at your own risk
-
----
-
-**⭐ If this project helped you, consider starring the repo!**
-
-**🐛 Found a bug?** [Open an issue](https://github.com/maxgfr/bruteforce-wifi/issues/new)
-
-**💡 Have an idea?** [Start a discussion](https://github.com/maxgfr/bruteforce-wifi/discussions)

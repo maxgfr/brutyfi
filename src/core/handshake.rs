@@ -53,14 +53,14 @@ impl Handshake {
     }
 }
 
-/// Parse .cap file to extract WPA/WPA2 handshake
+/// Parse .pcap file to extract WPA/WPA2 handshake
 ///
 /// This function reads a pcap file (captured with airodump-ng, wireshark, etc.)
 /// and extracts the WPA/WPA2 4-way handshake EAPOL frames.
 pub fn parse_cap_file(path: &std::path::Path, ssid: Option<&str>) -> Result<Handshake> {
     // Use pcap crate directly instead of pcap_parser to ensure compatibility
     // with how we write the file (using libpcap via pcap crate)
-    let mut cap =
+    let mut pcap =
         pcap::Capture::from_file(path).map_err(|e| anyhow!("Failed to open pcap file: {:?}", e))?;
 
     let mut eapol_packets: Vec<EapolPacket> = Vec::new();
@@ -68,7 +68,7 @@ pub fn parse_cap_file(path: &std::path::Path, ssid: Option<&str>) -> Result<Hand
         std::collections::HashMap::new();
 
     // Read all packets
-    while let Ok(packet) = cap.next_packet() {
+    while let Ok(packet) = pcap.next_packet() {
         // Try to extract EAPOL
         if let Some(eapol) = extract_eapol_from_packet(packet.data) {
             eapol_packets.push(eapol);
@@ -81,7 +81,7 @@ pub fn parse_cap_file(path: &std::path::Path, ssid: Option<&str>) -> Result<Hand
     }
 
     if eapol_packets.is_empty() {
-        return Err(anyhow!("No EAPOL packets found in .cap file"));
+        return Err(anyhow!("No EAPOL packets found in .pcap file"));
     }
 
     // Build handshake from EAPOL packets with map lookup

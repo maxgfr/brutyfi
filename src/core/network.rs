@@ -435,8 +435,10 @@ pub fn capture_traffic(options: CaptureOptions) -> Result<()> {
     // ========================================================================
 
     // Debug log for parameters
-    eprintln!("[DEBUG] capture_traffic called with channel: {:?}, ssid: {:?}, bssid: {:?}", 
-              channel, ssid, bssid);
+    eprintln!(
+        "[DEBUG] capture_traffic called with channel: {:?}, ssid: {:?}, bssid: {:?}",
+        channel, ssid, bssid
+    );
 
     let mut channels_to_scan = Vec::new();
 
@@ -445,7 +447,10 @@ pub fn capture_traffic(options: CaptureOptions) -> Result<()> {
         if let Some(ch) = channel {
             // Both SSID and channel specified - use the provided channel directly
             channels_to_scan.push(ch);
-            println!("ℹ️  Monitoring '{}' on Channel {} (manual)", target_ssid, ch);
+            println!(
+                "ℹ️  Monitoring '{}' on Channel {} (manual)",
+                target_ssid, ch
+            );
         } else if channel.is_none() {
             // SSID specified but no channel - auto-detect channels
             println!("🔍 Scanning for all channels (Smart Connect support)...");
@@ -912,7 +917,7 @@ pub fn capture_traffic(options: CaptureOptions) -> Result<()> {
                     }
 
                     println!("\n💡 To crack the captured network instead, run:");
-                    println!("  bruteforce-wifi capture --interface en0 --ssid \"{}\" --output capture.cap", handshake.ssid);
+                    println!("  bruteforce-wifi capture --interface en0 --ssid \"{}\" --output capture.pcap", handshake.ssid);
 
                     return Err(anyhow!(
                         "Wrong SSID captured: expected '{}', got '{}'",

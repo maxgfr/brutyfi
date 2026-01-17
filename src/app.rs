@@ -39,6 +39,8 @@ pub enum Message {
     StopScan,
     ScanComplete(ScanResult),
     SelectNetwork(usize),
+    BrowseCaptureFile,
+    CaptureFileSelected(Option<PathBuf>),
     StartCapture,
     StopCapture,
     CaptureProgress(workers::CaptureProgress),
@@ -185,6 +187,24 @@ impl BruteforceApp {
                     self.scan_capture_screen.handshake_complete = false;
                     // Reset bits captured
                     self.scan_capture_screen.packets_captured = 0;
+                }
+                Task::none()
+            }
+            Message::BrowseCaptureFile => Task::perform(
+                async {
+                    rfd::AsyncFileDialog::new()
+                        .set_title("Save Capture File")
+                        .add_filter("Capture Files", &["pcap", "pcap"])
+                        .set_file_name("handshake.pcap")
+                        .save_file()
+                        .await
+                        .map(|handle| handle.path().to_path_buf())
+                },
+                Message::CaptureFileSelected,
+            ),
+            Message::CaptureFileSelected(path) => {
+                if let Some(path) = path {
+                    self.scan_capture_screen.output_file = path.to_string_lossy().to_string();
                 }
                 Task::none()
             }
@@ -348,7 +368,7 @@ impl BruteforceApp {
             Message::BrowseHandshake => Task::perform(
                 async {
                     rfd::AsyncFileDialog::new()
-                        .add_filter("Capture files", &["cap", "pcap", "json"])
+                        .add_filter("Capture files", &["pcap", "pcap", "json"])
                         .set_title("Select Handshake File")
                         .pick_file()
                         .await

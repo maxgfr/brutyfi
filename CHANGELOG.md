@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.6.0](https://github.com/maxgfr/brutyfi/compare/v1.5.0...v1.6.0) (2026-01-18)
+
+
+### ✨ Features
+
+* rename project to BrutyFi and update related references ([296950f](https://github.com/maxgfr/brutyfi/commit/296950f30af779435edefd7f0c11720426660ddb))
+
 ## [1.5.0](https://github.com/maxgfr/bruteforce-wifi/compare/v1.4.2...v1.5.0) (2026-01-18)
 
 

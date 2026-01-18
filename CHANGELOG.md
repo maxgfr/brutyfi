@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.0](https://github.com/maxgfr/bruteforce-wifi/compare/v1.4.2...v1.5.0) (2026-01-18)
+
+
+### ✨ Features
+
+* enhance channel detection and logging during traffic capture ([83a7c8f](https://github.com/maxgfr/bruteforce-wifi/commit/83a7c8f0924db257c3f70855964c0eede745839a))
+* update file handling to support .pcap format and enhance capture file selection ([31155c2](https://github.com/maxgfr/bruteforce-wifi/commit/31155c2e9f1cc79ccd794b86137e0781a0de1cce))
+
 ## [1.4.2](https://github.com/maxgfr/bruteforce-wifi/compare/v1.4.1...v1.4.2) (2026-01-17)
 
 

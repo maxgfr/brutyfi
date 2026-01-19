@@ -15,8 +15,14 @@ mod workers;
 mod workers_optimized;
 
 use app::BruteforceApp;
+use iced::window;
 use iced::Size;
 use std::panic;
+
+#[cfg(target_os = "macos")]
+use std::env;
+#[cfg(target_os = "macos")]
+use std::process::Command;
 
 /// Check if the application is running with root privileges
 #[cfg(unix)]
@@ -27,6 +33,46 @@ fn is_root() -> bool {
 #[cfg(not(unix))]
 fn is_root() -> bool {
     false
+}
+
+#[cfg(target_os = "macos")]
+fn shell_escape(arg: &str) -> String {
+    let mut escaped = String::from("'");
+    for ch in arg.chars() {
+        if ch == '\'' {
+            escaped.push_str("'\\''");
+        } else {
+            escaped.push(ch);
+        }
+    }
+    escaped.push('\'');
+    escaped
+}
+
+#[cfg(target_os = "macos")]
+fn relaunch_as_root() -> bool {
+    let exe = match env::current_exe() {
+        Ok(path) => path,
+        Err(_) => return false,
+    };
+
+    let mut command = shell_escape(exe.to_string_lossy().as_ref());
+    for arg in env::args().skip(1) {
+        command.push(' ');
+        command.push_str(&shell_escape(&arg));
+    }
+
+    let script = format!(
+        "do shell script \"{}\" with administrator privileges",
+        command
+    );
+
+    Command::new("osascript")
+        .arg("-e")
+        .arg(script)
+        .status()
+        .map(|status| status.success())
+        .unwrap_or(false)
 }
 
 /// Setup panic handler to show errors instead of silent exit
@@ -61,12 +107,33 @@ fn setup_panic_handler() {
     }));
 }
 
+/// Load the application icon from the assets directory
+fn load_icon() -> Option<window::icon::Icon> {
+    window::icon::from_file_data(
+        include_bytes!("../assets/icon.png"),
+        Some(image::ImageFormat::Png),
+    )
+    .ok()
+}
+
 fn main() -> iced::Result {
     // Setup panic handler first
     setup_panic_handler();
 
     // Check for root privileges
     let is_root = is_root();
+
+    // macOS: request admin privileges at launch if needed
+    #[cfg(target_os = "macos")]
+    {
+        if !is_root {
+            if relaunch_as_root() {
+                return Ok(());
+            }
+
+            eprintln!("Failed to request administrator privileges. Continuing without root.");
+        }
+    }
 
     // Print startup info
     eprintln!("\nBrutyFi v{}", env!("CARGO_PKG_VERSION"));
@@ -90,19 +157,17 @@ fn main() -> iced::Result {
 
     #[cfg(not(target_os = "macos"))]
     {
-        if !is_root {
-            eprintln!("WARNING: Not running with administrator privileges!");
-            eprintln!("  - Network scanning may have limited results");
-            eprintln!("  - Packet capture will not work");
-            eprintln!();
-            eprintln!("To run with admin privileges:");
-            eprintln!("  sudo ./target/release/brutifi");
-            eprintln!();
-            eprintln!("Note: Crack mode works without admin privileges.");
-            eprintln!("================================\n");
-        } else {
-            eprintln!("Running with administrator privileges.\n");
-        }
+        eprintln!("Windows Permission Guide:");
+        eprintln!("------------------------");
+        eprintln!("  IMPORTANT: Run this application as Administrator for full functionality");
+        eprintln!();
+        eprintln!("  - Network scanning: Requires administrator privileges");
+        eprintln!("  - Packet capture: Requires administrator privileges");
+        eprintln!("  - Crack mode: Works without administrator privileges");
+        eprintln!();
+        eprintln!("To run as Administrator:");
+        eprintln!("  Right-click on brutifi.exe -> Run as Administrator");
+        eprintln!("================================\n");
     }
 
     // Run the GUI application
@@ -110,5 +175,9 @@ fn main() -> iced::Result {
         .subscription(BruteforceApp::subscription)
         .theme(BruteforceApp::theme)
         .window_size(Size::new(900.0, 700.0))
+        .window(window::Settings {
+            icon: load_icon(),
+            ..window::Settings::default()
+        })
         .run_with(move || BruteforceApp::new(is_root))
 }

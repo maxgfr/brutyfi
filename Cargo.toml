@@ -41,8 +41,9 @@ pcap = "2.4.0"
 libc = "0.2"
 
 # GUI dependencies (Iced)
-iced = { version = "0.13.1", features = ["tokio", "advanced"] }
+iced = { version = "0.13.1", features = ["tokio", "advanced", "image"] }
 rfd = "0.15"
+image = "0.24"
 
 [profile.release]
 opt-level = 3

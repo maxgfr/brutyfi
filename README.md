@@ -36,35 +36,21 @@ A high-performance, cross-platform desktop GUI application for testing WPA/WPA2 
 
 ### macOS
 
-#### Download Pre-built Binary
+#### Quick Installation
+
+1. Download the DMG from the latest release (Apple Silicon or Intel).
+2. Open the DMG and drag **BrutiFi.app** to **Applications**.
+3. Launch the app — macOS will ask for the admin (root) password at startup to enable capture.
+
+#### Remove Quarantine Attribute (Required for GitHub downloads)
+
+When downloading from GitHub, macOS adds a quarantine attribute. You must remove it to launch the app:
 
 ```bash
-# Apple Silicon (M1/M2/M3/M4) - Recommended
-curl -LO https://github.com/maxgfr/bruteforce-wifi/releases/latest/download/BrutiFi-*-macOS-arm64.dmg
-
-# Intel x86_64
-curl -LO https://github.com/maxgfr/bruteforce-wifi/releases/latest/download/BrutiFi-*-macOS-x86_64.dmg
-```
-
-#### Running from the DMG
-
-```bash
-hdiutil attach BrutiFi-*-macOS-*.dmg
-cp -R "/Volumes/BrutiFi/BrutiFi.app" /Applications/BrutiFi.app
 xattr -dr com.apple.quarantine /Applications/BrutiFi.app
-sudo /Applications/BrutiFi.app/Contents/MacOS/brutifi
 ```
 
-#### Build from Source (Recommended for Development)
-
-```bash
-git clone https://github.com/maxgfr/bruteforce-wifi.git
-cd bruteforce-wifi
-cargo build --release
-
-# Run locally
-sudo ./target/release/brutifi
-```
+> This removes security warnings, but WiFi capture in monitor mode still requires root privileges on macOS.
 
 ### Windows
 

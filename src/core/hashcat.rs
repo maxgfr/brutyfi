@@ -75,6 +75,11 @@ fn parse_progress_percent(line: &str) -> Option<f64> {
     percent_str.trim().parse::<f64>().ok()
 }
 
+fn parse_u64_clean(value: &str) -> Option<u64> {
+    let cleaned = value.trim().replace(',', "");
+    cleaned.parse::<u64>().ok()
+}
+
 fn parse_progress_counts(line: &str) -> Option<(u64, u64, f64)> {
     if !line.contains("Progress") {
         return None;
@@ -83,8 +88,8 @@ fn parse_progress_counts(line: &str) -> Option<(u64, u64, f64)> {
     let after = line.split(':').nth(1)?.trim();
     let counts_part = after.split_whitespace().next()?;
     let (current_str, total_str) = counts_part.split_once('/')?;
-    let current = current_str.trim().parse::<u64>().ok()?;
-    let total = total_str.trim().parse::<u64>().ok()?;
+    let current = parse_u64_clean(current_str)?;
+    let total = parse_u64_clean(total_str)?;
 
     let percent = if let Some(start) = after.find('(') {
         let end = after[start..].find('%')? + start;
@@ -100,12 +105,12 @@ fn parse_keyspace(line: &str) -> Option<u64> {
     if !line.contains("Keyspace") {
         return None;
     }
-    let digits: String = line.chars().filter(|c| c.is_ascii_digit()).collect();
-    if digits.is_empty() {
-        None
-    } else {
-        digits.parse::<u64>().ok()
+    let after = line.split(':').nth(1)?.trim();
+    if let Some((_, total_str)) = after.split_once('/') {
+        let total_part = total_str.split_whitespace().next().unwrap_or(total_str);
+        return parse_u64_clean(total_part);
     }
+    parse_u64_clean(after)
 }
 
 fn parse_restore_point(line: &str) -> Option<(u64, u64)> {
@@ -114,13 +119,9 @@ fn parse_restore_point(line: &str) -> Option<(u64, u64)> {
     }
     let after = line.split(':').nth(1)?.trim();
     let mut parts = after.split('/');
-    let current = parts.next()?.trim().parse::<u64>().ok()?;
-    let total = parts
-        .next()?
-        .split_whitespace()
-        .next()?
-        .parse::<u64>()
-        .ok()?;
+    let current = parse_u64_clean(parts.next()?)?;
+    let total = parts.next()?.split_whitespace().next()?.to_string();
+    let total = parse_u64_clean(&total)?;
     Some((current, total))
 }
 

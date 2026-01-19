@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b1020" />
+      <stop offset="55%" stop-color="#1f2a5c" />
+      <stop offset="100%" stop-color="#0ea5e9" />
+    </linearGradient>
+    <linearGradient id="ring" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#22d3ee" />
+      <stop offset="100%" stop-color="#a78bfa" />
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="30%" r="60%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.35" />
+      <stop offset="100%" stop-color="#38bdf8" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+
+  <rect x="32" y="32" width="448" height="448" rx="96" ry="96" fill="url(#bg)" />
+  <rect x="32" y="32" width="448" height="448" rx="96" ry="96" fill="url(#glow)" />
+
+  <!-- Circuit ring -->
+  <g transform="translate(256 256)">
+    <circle r="148" fill="none" stroke="url(#ring)" stroke-width="18" opacity="0.9" />
+    <circle r="118" fill="none" stroke="#e2e8f0" stroke-width="6" opacity="0.35" />
+    <circle r="164" fill="none" stroke="#0ea5e9" stroke-width="4" opacity="0.25" />
+  </g>
+
+  <!-- Node dots on ring -->
+  <g fill="#e2e8f0" opacity="0.85">
+    <circle cx="256" cy="92" r="6" />
+    <circle cx="372" cy="140" r="5" />
+    <circle cx="420" cy="256" r="6" />
+    <circle cx="372" cy="372" r="5" />
+    <circle cx="256" cy="420" r="6" />
+    <circle cx="140" cy="372" r="5" />
+    <circle cx="92" cy="256" r="6" />
+    <circle cx="140" cy="140" r="5" />
+  </g>
+
+  <!-- Inner shield & lock -->
+  <g transform="translate(256 250)">
+    <path d="M0 -96 C-54 -78 -88 -34 -88 18 C-88 96 -28 138 0 160 C28 138 88 96 88 18 C88 -34 54 -78 0 -96 Z"
+          fill="#f8fafc" />
+    <path d="M0 -76 C-40 -62 -64 -30 -64 12 C-64 76 -22 112 0 130 C22 112 64 76 64 12 C64 -30 40 -62 0 -76 Z"
+          fill="#0b1020" opacity="0.12" />
+
+    <g transform="translate(0 18)">
+      <rect x="-34" y="-6" width="68" height="56" rx="10" ry="10" fill="#0f172a" opacity="0.95" />
+      <path d="M-18 -6 V-28 A18 18 0 0 1 18 -28 V-6" fill="none" stroke="#0f172a" stroke-width="12" stroke-linecap="round" />
+      <circle cx="0" cy="18" r="8" fill="#38bdf8" />
+      <rect x="-3" y="22" width="6" height="18" rx="2" ry="2" fill="#38bdf8" />
+    </g>
+  </g>
+
+  <!-- Subtle scan line -->
+  <rect x="96" y="286" width="320" height="8" rx="4" ry="4" fill="#38bdf8" opacity="0.25" />
+</svg>

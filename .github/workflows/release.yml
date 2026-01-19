@@ -87,12 +87,16 @@ jobs:
           APP_DIR="target/release/${APP_NAME}.app"
           CONTENTS_DIR="${APP_DIR}/Contents"
           MACOS_DIR="${CONTENTS_DIR}/MacOS"
+          RESOURCES_DIR="${CONTENTS_DIR}/Resources"
 
           rm -rf "${APP_DIR}"
           mkdir -p "${MACOS_DIR}"
+          mkdir -p "${RESOURCES_DIR}"
 
           cp "target/${TARGET}/release/brutifi" "${MACOS_DIR}/brutifi"
           chmod +x "${MACOS_DIR}/brutifi"
+
+          cp "assets/icon.icns" "${RESOURCES_DIR}/AppIcon.icns"
 
             cat << 'EOF' | sed 's/^          //' > "${CONTENTS_DIR}/Info.plist"
             <?xml version="1.0" encoding="UTF-8"?>
@@ -103,6 +107,8 @@ jobs:
               <string>brutifi</string>
               <key>CFBundleIdentifier</key>
               <string>com.maxgfr.brutifi</string>
+              <key>CFBundleIconFile</key>
+              <string>AppIcon.icns</string>
               <key>CFBundleName</key>
               <string>${APP_NAME}</string>
               <key>CFBundlePackageType</key>

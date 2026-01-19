@@ -207,8 +207,6 @@ sudo apt install hashcat hcxtools
 # Download hcxtools from https://github.com/ZerBea/hcxtools
 ```
 
-
-
 ## 🔐 Security & Legal
 
 ### Disclaimer

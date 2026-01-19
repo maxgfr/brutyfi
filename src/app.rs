@@ -49,6 +49,7 @@ pub enum Message {
     StartCapture,
     StopCapture,
     CaptureProgress(workers::CaptureProgress),
+    EnableAdminMode,
 
     // Crack screen
     UseCapturedFileToggled(bool),
@@ -68,6 +69,7 @@ pub enum Message {
     CopyPassword,
     CopyLogs,
     LogsEditorAction(text_editor::Action),
+    ReturnToNormalMode,
 
     // General
     Tick,
@@ -89,23 +91,53 @@ impl BruteforceApp {
     pub fn new(is_root: bool) -> (Self, Task<Message>) {
         let interface_list = list_interfaces();
         let selected_interface = choose_default_interface(&interface_list);
-        (
-            Self {
-                screen: Screen::ScanCapture,
-                scan_capture_screen: ScanCaptureScreen {
-                    interface_list,
-                    selected_interface,
-                    ..ScanCaptureScreen::default()
-                },
-                crack_screen: CrackScreen::default(),
-                is_root,
-                capture_state: None,
-                capture_progress_rx: None,
-                crack_state: None,
-                crack_progress_rx: None,
+        let mut app = Self {
+            screen: Screen::ScanCapture,
+            scan_capture_screen: ScanCaptureScreen {
+                interface_list,
+                selected_interface,
+                ..ScanCaptureScreen::default()
             },
-            Task::none(),
-        )
+            crack_screen: CrackScreen::default(),
+            is_root,
+            capture_state: None,
+            capture_progress_rx: None,
+            crack_state: None,
+            crack_progress_rx: None,
+        };
+
+        #[cfg(target_os = "macos")]
+        {
+            if let Ok(screen) = std::env::var("BRUTIFI_START_SCREEN") {
+                if screen.eq_ignore_ascii_case("crack") {
+                    app.screen = Screen::Crack;
+                }
+            }
+
+            if let Ok(path) = std::env::var("BRUTIFI_HANDSHAKE_PATH") {
+                if !path.is_empty() {
+                    app.crack_screen.handshake_path = path;
+                }
+            }
+
+            if let Ok(ssid) = std::env::var("BRUTIFI_SSID") {
+                if !ssid.is_empty() {
+                    app.crack_screen.ssid = ssid;
+                }
+            }
+
+            if let Ok(val) = std::env::var("BRUTIFI_USE_CAPTURED") {
+                app.crack_screen.use_captured_file = val == "1" || val.eq_ignore_ascii_case("true");
+            }
+
+            if let Ok(path) = std::env::var("BRUTIFI_WORDLIST_PATH") {
+                if !path.is_empty() {
+                    app.crack_screen.wordlist_path = path;
+                }
+            }
+        }
+
+        (app, Task::none())
     }
 
     pub fn theme(&self) -> Theme {
@@ -257,7 +289,7 @@ impl BruteforceApp {
                     // Check if running as root
                     if !self.is_root {
                         self.scan_capture_screen.error_message = Some(
-                            "Capture requires root. In development mode, run with: sudo ./target/release/brutifi"
+                            "Capture requires admin privileges. Click 'Enable Admin Mode' in this screen, or run with sudo."
                                 .to_string(),
                         );
                         return Task::none();
@@ -364,6 +396,29 @@ impl BruteforceApp {
                     }
                     _ => {}
                 }
+                Task::none()
+            }
+            Message::EnableAdminMode => {
+                #[cfg(target_os = "macos")]
+                {
+                    if !self.is_root {
+                        if crate::relaunch_as_root() {
+                            std::process::exit(0);
+                        }
+
+                        self.scan_capture_screen.error_message = Some(
+                            "Failed to request admin privileges. Please try again or launch with sudo."
+                                .to_string(),
+                        );
+                    }
+                }
+
+                #[cfg(not(target_os = "macos"))]
+                {
+                    self.scan_capture_screen.error_message =
+                        Some("Please restart the app with Administrator privileges.".to_string());
+                }
+
                 Task::none()
             }
 
@@ -668,6 +723,49 @@ impl BruteforceApp {
                 self.crack_screen.logs_content.perform(action);
                 Task::none()
             }
+            Message::ReturnToNormalMode => {
+                #[cfg(target_os = "macos")]
+                {
+                    if self.is_root {
+                        let mut envs = Vec::new();
+                        envs.push(("BRUTIFI_START_SCREEN", "crack".to_string()));
+                        if !self.crack_screen.handshake_path.is_empty() {
+                            envs.push((
+                                "BRUTIFI_HANDSHAKE_PATH",
+                                self.crack_screen.handshake_path.clone(),
+                            ));
+                        }
+                        if !self.crack_screen.ssid.is_empty() {
+                            envs.push(("BRUTIFI_SSID", self.crack_screen.ssid.clone()));
+                        }
+                        envs.push((
+                            "BRUTIFI_USE_CAPTURED",
+                            if self.crack_screen.use_captured_file {
+                                "1".to_string()
+                            } else {
+                                "0".to_string()
+                            },
+                        ));
+                        if !self.crack_screen.wordlist_path.is_empty() {
+                            envs.push((
+                                "BRUTIFI_WORDLIST_PATH",
+                                self.crack_screen.wordlist_path.clone(),
+                            ));
+                        }
+
+                        if crate::relaunch_as_user(&envs) {
+                            std::process::exit(0);
+                        }
+
+                        self.crack_screen.error_message = Some(
+                            "Failed to return to normal mode. Please restart the app manually."
+                                .to_string(),
+                        );
+                    }
+                }
+
+                Task::none()
+            }
             Message::Tick => {
                 let mut messages = Vec::new();
 
@@ -743,8 +841,8 @@ impl BruteforceApp {
 
         // Current screen content
         let content = match self.screen {
-            Screen::ScanCapture => self.scan_capture_screen.view(),
-            Screen::Crack => self.crack_screen.view(),
+            Screen::ScanCapture => self.scan_capture_screen.view(self.is_root),
+            Screen::Crack => self.crack_screen.view(self.is_root),
         };
 
         let mut main_col = column![nav, horizontal_rule(1)];

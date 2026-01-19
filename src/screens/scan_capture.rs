@@ -72,12 +72,12 @@ impl Default for ScanCaptureScreen {
 }
 
 impl ScanCaptureScreen {
-    pub fn view(&self) -> Element<'_, Message> {
+    pub fn view(&self, is_root: bool) -> Element<'_, Message> {
         // Left panel: Network list
         let left_panel = self.view_network_list();
 
         // Right panel: Capture
-        let right_panel = self.view_capture_panel();
+        let right_panel = self.view_capture_panel(is_root);
 
         // Main layout: two columns
         let content = row![left_panel, right_panel,]
@@ -263,7 +263,7 @@ impl ScanCaptureScreen {
             .into()
     }
 
-    fn view_capture_panel(&self) -> Element<'_, Message> {
+    fn view_capture_panel(&self, is_root: bool) -> Element<'_, Message> {
         let title = text("Capture Handshake").size(20).color(colors::TEXT);
 
         // Network selector - simplified without pick_list
@@ -467,6 +467,50 @@ impl ScanCaptureScreen {
             None
         };
 
+        // Admin mode prompt (macOS)
+        let admin_prompt =
+            if !is_root {
+                if cfg!(target_os = "macos") {
+                    Some(
+                        container(
+                            column![
+                            text("Admin mode required for capture")
+                                .size(12)
+                                .color(colors::TEXT),
+                            text("Enable admin mode to allow packet capture. The app will restart.")
+                                .size(10)
+                                .color(colors::TEXT_DIM),
+                            button(text("Enable Admin Mode").size(12))
+                                .padding([6, 12])
+                                .style(theme::secondary_button_style)
+                                .on_press(Message::EnableAdminMode),
+                        ]
+                            .spacing(6),
+                        )
+                        .padding(10)
+                        .style(theme::card_style),
+                    )
+                } else {
+                    Some(
+                        container(
+                            column![
+                                text("Admin privileges required for capture")
+                                    .size(12)
+                                    .color(colors::TEXT),
+                                text("Please restart the app as Administrator.")
+                                    .size(10)
+                                    .color(colors::TEXT_DIM),
+                            ]
+                            .spacing(6),
+                        )
+                        .padding(10)
+                        .style(theme::card_style),
+                    )
+                }
+            } else {
+                None
+            };
+
         // Control buttons
         let capture_btn = if self.is_capturing {
             button(text("Stop Capture").size(13))
@@ -554,6 +598,10 @@ impl ScanCaptureScreen {
 
         if let Some(error) = error_display {
             content = content.push(error);
+        }
+
+        if let Some(prompt) = admin_prompt {
+            content = content.push(prompt);
         }
 
         if let Some(instr) = instructions {

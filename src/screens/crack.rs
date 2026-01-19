@@ -109,12 +109,36 @@ impl Default for CrackScreen {
 }
 
 impl CrackScreen {
-    pub fn view(&self) -> Element<'_, Message> {
+    pub fn view(&self, is_root: bool) -> Element<'_, Message> {
         let title = text("Crack Password").size(28).color(colors::TEXT);
 
         let subtitle = text("Bruteforce WPA/WPA2 password from captured handshake")
             .size(14)
             .color(colors::TEXT_DIM);
+
+        let root_warning = if is_root && cfg!(target_os = "macos") {
+            Some(
+                container(
+                    column![
+                        text("File access limited in admin mode")
+                            .size(12)
+                            .color(colors::TEXT),
+                        text("Switch back to normal mode to browse your files.")
+                            .size(10)
+                            .color(colors::TEXT_DIM),
+                        button(text("Switch to Normal Mode").size(12))
+                            .padding([6, 12])
+                            .style(theme::secondary_button_style)
+                            .on_press(Message::ReturnToNormalMode),
+                    ]
+                    .spacing(6),
+                )
+                .padding(10)
+                .style(theme::card_style),
+            )
+        } else {
+            None
+        };
 
         // Engine selection (Native vs Hashcat)
         let engine_options: Vec<CrackEngine> = if self.hashcat_available && self.hcxtools_available
@@ -544,6 +568,10 @@ impl CrackScreen {
             method_options,
         ]
         .spacing(15);
+
+        if let Some(warning) = root_warning {
+            content = content.push(warning);
+        }
 
         if let Some(threads) = threads_config {
             content = content.push(threads);

@@ -22,6 +22,10 @@ use std::panic;
 #[cfg(target_os = "macos")]
 use std::env;
 #[cfg(target_os = "macos")]
+use std::ffi::CString;
+#[cfg(target_os = "macos")]
+use std::os::unix::process::CommandExt;
+#[cfg(target_os = "macos")]
 use std::process::Command;
 
 /// Check if the application is running with root privileges
@@ -50,7 +54,7 @@ fn shell_escape(arg: &str) -> String {
 }
 
 #[cfg(target_os = "macos")]
-fn relaunch_as_root() -> bool {
+pub(crate) fn relaunch_as_root() -> bool {
     let exe = match env::current_exe() {
         Ok(path) => path,
         Err(_) => return false,
@@ -85,6 +89,49 @@ fn relaunch_as_root() -> bool {
     Command::new("osascript")
         .arg("-e")
         .arg(script)
+        .status()
+        .map(|status| status.success())
+        .unwrap_or(false)
+}
+
+#[cfg(target_os = "macos")]
+fn user_ids(username: &str) -> Option<(u32, u32)> {
+    let cstr = CString::new(username).ok()?;
+    unsafe {
+        let pwd = libc::getpwnam(cstr.as_ptr());
+        if pwd.is_null() {
+            return None;
+        }
+        let uid = (*pwd).pw_uid;
+        let gid = (*pwd).pw_gid;
+        Some((uid, gid))
+    }
+}
+
+#[cfg(target_os = "macos")]
+pub(crate) fn relaunch_as_user(envs: &[(&'static str, String)]) -> bool {
+    let exe = match env::current_exe() {
+        Ok(path) => path,
+        Err(_) => return false,
+    };
+
+    let user = env::var("USER").unwrap_or_else(|_| "".to_string());
+    if user.is_empty() {
+        return false;
+    }
+
+    let (uid, gid) = match user_ids(&user) {
+        Some(ids) => ids,
+        None => return false,
+    };
+
+    let mut cmd = Command::new(exe);
+    for (k, v) in envs {
+        cmd.env(*k, v);
+    }
+
+    cmd.uid(uid)
+        .gid(gid)
         .status()
         .map(|status| status.success())
         .unwrap_or(false)
@@ -138,15 +185,24 @@ fn main() -> iced::Result {
     // Check for root privileges
     let is_root = is_root();
 
-    // macOS: request admin privileges at launch if needed
+    // macOS: do NOT auto-relaunch as root (prevents duplicate instances and file dialog issues).
+    // Users can opt-in by setting BRUTIFI_AUTO_ELEVATE=1.
     #[cfg(target_os = "macos")]
     {
         if !is_root {
-            if relaunch_as_root() {
-                std::process::exit(0);
-            }
+            let auto_elevate = std::env::var("BRUTIFI_AUTO_ELEVATE")
+                .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+                .unwrap_or(false);
 
-            eprintln!("Failed to request administrator privileges. Continuing without root.");
+            if auto_elevate {
+                if relaunch_as_root() {
+                    std::process::exit(0);
+                }
+
+                eprintln!("Failed to request administrator privileges. Continuing without root.");
+            } else {
+                eprintln!("Running without admin privileges. Capture will be disabled unless you launch with sudo or set BRUTIFI_AUTO_ELEVATE=1.");
+            }
         }
     }
 

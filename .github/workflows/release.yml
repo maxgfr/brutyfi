@@ -121,6 +121,8 @@ jobs:
               <string>10.15</string>
               <key>NSHighResolutionCapable</key>
               <true/>
+              <key>LSMultipleInstancesProhibited</key>
+              <true/>
             </dict>
             </plist>
             EOF

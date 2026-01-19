@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.7.0](https://github.com/maxgfr/brutifi/compare/v1.6.0...v1.7.0) (2026-01-19)
+
+
+### ✨ Features
+
+* Add Hashcat support for GPU-accelerated cracking ([c52a461](https://github.com/maxgfr/brutifi/commit/c52a461f4e3fdd6b3448624a47533a4126d61e3b))
+* Add interface selection to ScanCaptureScreen and update BruteforceApp initialization ([88cd594](https://github.com/maxgfr/brutifi/commit/88cd594686f54f81de2c177d203eacc0dc267eb7))
+* Add progress counts parsing and handle existing capture file removal in capture_async ([039ae45](https://github.com/maxgfr/brutifi/commit/039ae45bff77a3cd4f050fc06dce5035b29d9856))
+* optimize bruteforce engine and cryptographic functions for performance ([d662fbf](https://github.com/maxgfr/brutifi/commit/d662fbf3c2f1d81cb7635c41e2e1e064fb3d6923))
+* Refactor macOS app bundle creation and update README for BrutiFi ([ea48b87](https://github.com/maxgfr/brutifi/commit/ea48b87b185021908547a28ddcbc0292dcaed307))
+* Update references to BrutiFi in macOS scripts and remove unused capture progress data ([bb46278](https://github.com/maxgfr/brutifi/commit/bb462784424eb9a5c5d2673c0965dcb5bd4addd4))
+
 ## [1.6.0](https://github.com/maxgfr/brutyfi/compare/v1.5.0...v1.6.0) (2026-01-18)
 
 

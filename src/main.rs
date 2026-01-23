@@ -223,30 +223,12 @@ fn main() -> iced::Result {
         use brutifi::core::network::check_pcap_available;
         if let Err(e) = check_pcap_available() {
             eprintln!("\n{}", "!".repeat(60));
-            eprintln!("ERROR: Npcap/WinPcap Not Found");
+            eprintln!("WARNING: Npcap/WinPcap Not Found");
             eprintln!("{}\n", "!".repeat(60));
             eprintln!("{}\n", e);
-            eprintln!("The application will exit now.");
-            eprintln!("Please install Npcap and restart BrutiFi.\n");
-
-            // Show a message box on Windows
-            #[cfg(target_os = "windows")]
-            {
-                use std::process::Command;
-                let _ = Command::new("cmd")
-                    .args(&[
-                        "/C",
-                        "msg",
-                        "*",
-                        "BrutiFi Error: Npcap is required but not found.\n\n\
-                        Please install Npcap from https://npcap.com/#download\n\n\
-                        During installation, check 'Install Npcap in WinPcap API-compatible Mode'\n\n\
-                        Then restart BrutiFi."
-                    ])
-                    .spawn();
-            }
-
-            std::process::exit(1);
+            eprintln!("Network scanning and packet capture will be DISABLED.");
+            eprintln!("You can still use the crack functionality with existing capture files.\n");
+            eprintln!("To enable full functionality, install Npcap and restart BrutiFi.\n");
         }
     }
 
@@ -276,9 +258,13 @@ fn main() -> iced::Result {
         eprintln!("------------------------");
         eprintln!("  IMPORTANT: Run this application as Administrator for full functionality");
         eprintln!();
-        eprintln!("  - Network scanning: Requires administrator privileges");
-        eprintln!("  - Packet capture: Requires administrator privileges");
-        eprintln!("  - Crack mode: Works without administrator privileges");
+        eprintln!("  Requirements:");
+        eprintln!("    - Npcap: Required for network scanning and packet capture");
+        eprintln!("    - Administrator privileges: Required for scanning and capture");
+        eprintln!();
+        eprintln!("  - Network scanning: Requires Npcap + Administrator privileges");
+        eprintln!("  - Packet capture: Requires Npcap + Administrator privileges");
+        eprintln!("  - Crack mode: Works without any special requirements");
         eprintln!();
         eprintln!("To run as Administrator:");
         eprintln!("  Right-click on brutifi.exe -> Run as Administrator");

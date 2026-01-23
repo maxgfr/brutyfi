@@ -283,13 +283,6 @@ impl CrackScreen {
                         ]
                         .spacing(4),
                         horizontal_space(),
-                        column![
-                            text("Combinations").size(12).color(colors::TEXT_DIM),
-                            text(self.calculate_combinations())
-                                .size(14)
-                                .color(colors::SECONDARY),
-                        ]
-                        .spacing(4),
                     ]
                     .spacing(20)
                     .align_y(iced::Alignment::End),
@@ -379,13 +372,6 @@ impl CrackScreen {
                             ],
                             progress_bar,
                             row![
-                                text(format!(
-                                    "{} / {} attempts",
-                                    format_number(self.current_attempts),
-                                    format_number(self.total_attempts)
-                                ))
-                                .size(12)
-                                .color(colors::TEXT_DIM),
                                 horizontal_space(),
                                 text(format!("{:.0} passwords/sec", self.rate))
                                     .size(12)
@@ -578,12 +564,12 @@ impl CrackScreen {
             content = content.push(progress);
         }
 
-        if let Some(logs) = logs_display {
-            content = content.push(logs);
-        }
-
         if let Some(result) = result_display {
             content = content.push(result);
+        }
+
+        if let Some(logs) = logs_display {
+            content = content.push(logs);
         }
 
         if let Some(error) = error_display {
@@ -601,29 +587,4 @@ impl CrackScreen {
             })
             .into()
     }
-
-    fn calculate_combinations(&self) -> String {
-        let min: usize = self.min_digits.parse().unwrap_or(8);
-        let max: usize = self.max_digits.parse().unwrap_or(8);
-
-        let mut total: u64 = 0;
-        for len in min..=max {
-            total += 10u64.pow(len as u32);
-        }
-
-        format_number(total)
-    }
-}
-
-/// Format a number with thousand separators
-fn format_number(n: u64) -> String {
-    let s = n.to_string();
-    let mut result = String::new();
-    for (i, c) in s.chars().rev().enumerate() {
-        if i > 0 && i % 3 == 0 {
-            result.insert(0, ',');
-        }
-        result.insert(0, c);
-    }
-    result
 }

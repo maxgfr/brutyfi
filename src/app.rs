@@ -333,9 +333,13 @@ impl BruteforceApp {
                     self.crack_screen.ssid = network.ssid.clone();
                 }
 
-                // Only reset crack screen state if NOT currently cracking
-                // This preserves logs when navigating back to the crack screen
-                if !self.crack_screen.is_cracking {
+                // Only reset crack screen state if NOT currently cracking AND no results to show
+                // This preserves logs when navigating back to the crack screen after a crack
+                let has_results = self.crack_screen.found_password.is_some()
+                    || self.crack_screen.password_not_found
+                    || self.crack_screen.error_message.is_some();
+
+                if !self.crack_screen.is_cracking && !has_results {
                     self.crack_screen.error_message = None;
                     self.crack_screen.found_password = None;
                     self.crack_screen.password_not_found = false;
@@ -529,54 +533,34 @@ impl BruteforceApp {
             Message::CopyLogsToClipboard => {
                 let logs_text = self.scan_capture_screen.log_messages.join("\n");
                 if !logs_text.is_empty() {
+                    // On macOS, clipboard::write may fail when running as root
+                    // Use pbcopy as a more reliable fallback
                     #[cfg(target_os = "macos")]
                     {
                         use std::io::Write;
                         use std::process::{Command, Stdio};
 
-                        // Spawn pbcopy with piped stdin
-                        let result = Command::new("pbcopy")
-                            .stdin(Stdio::piped())
-                            .spawn()
-                            .and_then(|mut child| {
-                                // Take ownership of stdin to ensure it's closed after writing
-                                if let Some(mut stdin) = child.stdin.take() {
-                                    // Write logs to stdin
-                                    stdin.write_all(logs_text.as_bytes())?;
-                                    // stdin is automatically closed when dropped here
-                                }
-                                // Wait for pbcopy to finish
-                                child.wait()
-                            });
-
-                        match result {
-                            Ok(_) => {
-                                self.scan_capture_screen
-                                    .log_messages
-                                    .push("📋 Logs copied to clipboard".to_string());
+                        if let Ok(mut child) = Command::new("pbcopy").stdin(Stdio::piped()).spawn()
+                        {
+                            if let Some(mut stdin) = child.stdin.take() {
+                                let _ = stdin.write_all(logs_text.as_bytes());
                             }
-                            Err(e) => {
-                                eprintln!("[ERROR] Failed to copy logs: {}", e);
-                                self.scan_capture_screen
-                                    .log_messages
-                                    .push(format!("❌ Failed to copy: {}", e));
+                            let _ = child.wait();
+                            self.scan_capture_screen
+                                .log_messages
+                                .push("📋 Logs copied to clipboard".to_string());
+                            if self.scan_capture_screen.log_messages.len() > 50 {
+                                self.scan_capture_screen.log_messages.remove(0);
                             }
+                            let new_logs_text = self.scan_capture_screen.log_messages.join("\n");
+                            self.scan_capture_screen.logs_content =
+                                text_editor::Content::with_text(&new_logs_text);
+                            return Task::none();
                         }
-
-                        if self.scan_capture_screen.log_messages.len() > 50 {
-                            self.scan_capture_screen.log_messages.remove(0);
-                        }
-                        let logs_text = self.scan_capture_screen.log_messages.join("\n");
-                        self.scan_capture_screen.logs_content =
-                            text_editor::Content::with_text(&logs_text);
                     }
 
-                    #[cfg(not(target_os = "macos"))]
-                    {
-                        self.scan_capture_screen
-                            .log_messages
-                            .push("❌ Copy to clipboard only supported on macOS".to_string());
-                    }
+                    // Fallback to Iced clipboard (works on non-macOS or if pbcopy fails)
+                    return clipboard::write(logs_text);
                 }
                 Task::none()
             }
@@ -887,7 +871,7 @@ impl BruteforceApp {
             Message::BrowseHandshake => Task::perform(
                 async {
                     rfd::AsyncFileDialog::new()
-                        .add_filter("Capture files", &["pcap", "pcap", "json"])
+                        .add_filter("Capture files", &["cap", "pcap", "pcapng", "json"])
                         .set_title("Select Handshake File")
                         .pick_file()
                         .await
@@ -908,15 +892,35 @@ impl BruteforceApp {
             ),
             Message::HandshakeSelected(path) => {
                 if let Some(p) = path {
-                    self.crack_screen.handshake_path = p.display().to_string();
+                    let path_str = p.display().to_string();
+                    eprintln!("[DEBUG] Handshake file selected: {}", path_str);
+                    self.crack_screen.handshake_path = path_str.clone();
                     self.crack_screen.use_captured_file = false;
+                    self.crack_screen
+                        .log_messages
+                        .push(format!("📁 Handshake file: {}", path_str));
+                    if self.crack_screen.log_messages.len() > 50 {
+                        self.crack_screen.log_messages.remove(0);
+                    }
+                    let logs_text = self.crack_screen.log_messages.join("\n");
+                    self.crack_screen.logs_content = text_editor::Content::with_text(&logs_text);
                 }
                 self.persist_state();
                 Task::none()
             }
             Message::WordlistSelected(path) => {
                 if let Some(p) = path {
-                    self.crack_screen.wordlist_path = p.display().to_string();
+                    let path_str = p.display().to_string();
+                    eprintln!("[DEBUG] Wordlist file selected: {}", path_str);
+                    self.crack_screen.wordlist_path = path_str.clone();
+                    self.crack_screen
+                        .log_messages
+                        .push(format!("📁 Wordlist file: {}", path_str));
+                    if self.crack_screen.log_messages.len() > 50 {
+                        self.crack_screen.log_messages.remove(0);
+                    }
+                    let logs_text = self.crack_screen.log_messages.join("\n");
+                    self.crack_screen.logs_content = text_editor::Content::with_text(&logs_text);
                 }
                 self.persist_state();
                 Task::none()
@@ -976,7 +980,23 @@ impl BruteforceApp {
                 self.crack_screen.progress = 0.0;
                 self.crack_screen.status_message = "Starting...".to_string();
                 self.crack_screen.log_messages.clear();
-                self.crack_screen.logs_content = text_editor::Content::new();
+
+                // Add initial log messages with configuration info
+                self.crack_screen.log_messages.push(format!(
+                    "🚀 Starting crack for: {}",
+                    self.crack_screen.handshake_path
+                ));
+                self.crack_screen.log_messages.push(format!(
+                    "📊 Engine: {:?} | Method: {:?}",
+                    self.crack_screen.engine, self.crack_screen.method
+                ));
+                if !self.crack_screen.ssid.is_empty() {
+                    self.crack_screen
+                        .log_messages
+                        .push(format!("📡 Target SSID: {}", self.crack_screen.ssid));
+                }
+                let logs_text = self.crack_screen.log_messages.join("\n");
+                self.crack_screen.logs_content = text_editor::Content::with_text(&logs_text);
 
                 let state = Arc::new(CrackState::new());
                 self.crack_state = Some(state.clone());
@@ -1112,6 +1132,25 @@ impl BruteforceApp {
                             text_editor::Content::with_text(&logs_text);
                     }
                     workers::CrackProgress::Found(password) => {
+                        // Drain any remaining log messages from the channel before closing
+                        if let Some(ref mut rx) = self.crack_progress_rx {
+                            while let Ok(remaining) = rx.try_recv() {
+                                if let workers::CrackProgress::Log(msg) = remaining {
+                                    self.crack_screen.log_messages.push(msg);
+                                }
+                            }
+                        }
+
+                        self.crack_screen
+                            .log_messages
+                            .push(format!("✅ Password found: {}", password));
+                        if self.crack_screen.log_messages.len() > 50 {
+                            self.crack_screen.log_messages.remove(0);
+                        }
+                        let logs_text = self.crack_screen.log_messages.join("\n");
+                        self.crack_screen.logs_content =
+                            text_editor::Content::with_text(&logs_text);
+
                         self.crack_screen.found_password = Some(password);
                         self.crack_screen.status_message = "Password found!".to_string();
                         self.crack_screen.progress = 1.0;
@@ -1119,6 +1158,25 @@ impl BruteforceApp {
                         self.crack_progress_rx = None;
                     }
                     workers::CrackProgress::NotFound => {
+                        // Drain any remaining log messages from the channel before closing
+                        if let Some(ref mut rx) = self.crack_progress_rx {
+                            while let Ok(remaining) = rx.try_recv() {
+                                if let workers::CrackProgress::Log(msg) = remaining {
+                                    self.crack_screen.log_messages.push(msg);
+                                }
+                            }
+                        }
+
+                        self.crack_screen
+                            .log_messages
+                            .push("❌ Password not found - all combinations exhausted".to_string());
+                        if self.crack_screen.log_messages.len() > 50 {
+                            self.crack_screen.log_messages.remove(0);
+                        }
+                        let logs_text = self.crack_screen.log_messages.join("\n");
+                        self.crack_screen.logs_content =
+                            text_editor::Content::with_text(&logs_text);
+
                         self.crack_screen.status_message = "Password not found".to_string();
                         self.crack_screen.progress = 1.0;
                         self.crack_screen.password_not_found = true;
@@ -1126,6 +1184,25 @@ impl BruteforceApp {
                         self.crack_progress_rx = None;
                     }
                     workers::CrackProgress::Error(msg) => {
+                        // Drain any remaining log messages from the channel before closing
+                        if let Some(ref mut rx) = self.crack_progress_rx {
+                            while let Ok(remaining) = rx.try_recv() {
+                                if let workers::CrackProgress::Log(msg) = remaining {
+                                    self.crack_screen.log_messages.push(msg);
+                                }
+                            }
+                        }
+
+                        self.crack_screen
+                            .log_messages
+                            .push(format!("❌ Error: {}", msg));
+                        if self.crack_screen.log_messages.len() > 50 {
+                            self.crack_screen.log_messages.remove(0);
+                        }
+                        let logs_text = self.crack_screen.log_messages.join("\n");
+                        self.crack_screen.logs_content =
+                            text_editor::Content::with_text(&logs_text);
+
                         self.crack_screen.error_message = Some(msg);
                         self.crack_screen.status_message = "Error occurred".to_string();
                         self.crack_screen.is_cracking = false;
@@ -1136,6 +1213,24 @@ impl BruteforceApp {
             }
             Message::CopyPassword => {
                 if let Some(ref password) = self.crack_screen.found_password {
+                    // On macOS, clipboard::write may fail when running as root
+                    // Use pbcopy as a more reliable fallback
+                    #[cfg(target_os = "macos")]
+                    {
+                        use std::io::Write;
+                        use std::process::{Command, Stdio};
+
+                        if let Ok(mut child) = Command::new("pbcopy").stdin(Stdio::piped()).spawn()
+                        {
+                            if let Some(mut stdin) = child.stdin.take() {
+                                let _ = stdin.write_all(password.as_bytes());
+                            }
+                            let _ = child.wait();
+                            return Task::none();
+                        }
+                    }
+
+                    // Fallback to Iced clipboard
                     return clipboard::write(password.clone());
                 }
                 Task::none()
@@ -1143,6 +1238,33 @@ impl BruteforceApp {
             Message::CopyLogs => {
                 let logs_text = self.crack_screen.log_messages.join("\n");
                 if !logs_text.is_empty() {
+                    // On macOS, clipboard::write may fail when running as root
+                    // Use pbcopy as a more reliable fallback
+                    #[cfg(target_os = "macos")]
+                    {
+                        use std::io::Write;
+                        use std::process::{Command, Stdio};
+
+                        if let Ok(mut child) = Command::new("pbcopy").stdin(Stdio::piped()).spawn()
+                        {
+                            if let Some(mut stdin) = child.stdin.take() {
+                                let _ = stdin.write_all(logs_text.as_bytes());
+                            }
+                            let _ = child.wait();
+                            self.crack_screen
+                                .log_messages
+                                .push("📋 Logs copied to clipboard".to_string());
+                            if self.crack_screen.log_messages.len() > 50 {
+                                self.crack_screen.log_messages.remove(0);
+                            }
+                            let new_logs_text = self.crack_screen.log_messages.join("\n");
+                            self.crack_screen.logs_content =
+                                text_editor::Content::with_text(&new_logs_text);
+                            return Task::none();
+                        }
+                    }
+
+                    // Fallback to Iced clipboard (works on non-macOS or if pbcopy fails)
                     return clipboard::write(logs_text);
                 }
                 Task::none()
@@ -1379,6 +1501,7 @@ impl BruteforceApp {
         }
     }
 
+    #[cfg(target_os = "macos")]
     fn build_relaunch_envs_for_capture(&self, auto_capture: bool) -> Vec<(&'static str, String)> {
         let mut envs = Vec::new();
         envs.push(("BRUTIFI_START_SCREEN", "scan".to_string()));

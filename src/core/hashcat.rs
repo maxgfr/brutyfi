@@ -817,31 +817,52 @@ pub fn run_hashcat(
                 if status.success() || status.code() == Some(1) {
                     // Check potfile or --show for results
                     let potfile_path = "/tmp/brutyfi_hashcat.potfile";
-                    let show_output = Command::new("hashcat")
+
+                    // Use the same hashcat binary that was found earlier
+                    let Some(hashcat_bin_show) = find_hashcat_binary() else {
+                        return HashcatResult::Error(
+                            "hashcat binary not found for --show command".to_string(),
+                        );
+                    };
+
+                    let mut show_cmd = Command::new(hashcat_bin_show);
+                    show_cmd
                         .arg("-m")
                         .arg("22000")
                         .arg(&params.hash_file)
                         .arg("--potfile-path")
                         .arg(potfile_path)
                         .arg("--show")
-                        .arg("--quiet")
-                        .output();
+                        .arg("--quiet");
 
-                    if let Ok(output) = show_output {
-                        let stdout = String::from_utf8_lossy(&output.stdout);
-                        for line in stdout.lines() {
-                            let line = line.trim();
-                            if !line.is_empty() && line.contains(':') {
-                                if let Some(password) = line.split(':').next_back() {
-                                    let password = password.trim();
-                                    if password.len() >= 8
-                                        && password.len() <= 63
-                                        && !password.contains('*')
-                                    {
-                                        return HashcatResult::Found(password.to_string());
+                    let show_output = show_cmd.output();
+
+                    match show_output {
+                        Ok(output) => {
+                            // Log stderr if there are any errors from --show
+                            let stderr = String::from_utf8_lossy(&output.stderr);
+                            if !stderr.trim().is_empty() {
+                                eprintln!("Hashcat --show stderr: {}", stderr.trim());
+                            }
+
+                            let stdout = String::from_utf8_lossy(&output.stdout);
+                            for line in stdout.lines() {
+                                let line = line.trim();
+                                if !line.is_empty() && line.contains(':') {
+                                    if let Some(password) = line.split(':').next_back() {
+                                        let password = password.trim();
+                                        if password.len() >= 8
+                                            && password.len() <= 63
+                                            && !password.contains('*')
+                                        {
+                                            return HashcatResult::Found(password.to_string());
+                                        }
                                     }
                                 }
                             }
+                        }
+                        Err(e) => {
+                            eprintln!("Failed to execute hashcat --show: {}", e);
                         }
                     }
 

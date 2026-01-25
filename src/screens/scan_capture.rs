@@ -7,11 +7,11 @@
 
 use iced::widget::{
     button, column, container, horizontal_rule, horizontal_space, pick_list, row, scrollable, text,
-    text_editor, Column,
+    Column,
 };
 use iced::{Element, Length, Theme};
 
-use crate::app::Message;
+use crate::messages::Message;
 use crate::theme::{self, colors};
 use brutifi::WifiNetwork;
 
@@ -49,7 +49,6 @@ pub struct ScanCaptureScreen {
     // Shared
     pub error_message: Option<String>,
     pub log_messages: Vec<String>,
-    pub logs_content: text_editor::Content,
     pub last_saved_capture_path: Option<String>,
 
     // Channel selection for multi-channel networks
@@ -73,7 +72,6 @@ impl Default for ScanCaptureScreen {
             handshake_complete: false,
             error_message: None,
             log_messages: Vec::new(),
-            logs_content: text_editor::Content::new(),
             last_saved_capture_path: None,
             available_channels: Vec::new(),
             selected_channel: None,
@@ -470,11 +468,12 @@ impl ScanCaptureScreen {
                 container(
                     column![
                         text("Logs").size(13).color(colors::TEXT),
-                        text_editor(&self.logs_content)
-                            .on_action(Message::LogsEditorAction)
-                            .padding(8)
-                            .size(11)
-                            .height(Length::Fixed(150.0))
+                        scrollable(
+                            container(text(self.log_messages.join("\n")).size(11))
+                                .padding(8)
+                                .width(Length::Fill)
+                        )
+                        .height(Length::Fixed(150.0))
                     ]
                     .spacing(8)
                     .padding(15),

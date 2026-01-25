@@ -16,6 +16,6 @@ pub use hashcat::{
     HashcatProgress, HashcatResult,
 };
 pub use network::{
-    capture_traffic, check_pcap_available, compact_duplicate_networks, disconnect_wifi,
-    scan_networks, wifi_connected_ssid, CaptureOptions, WifiNetwork,
+    capture_traffic, compact_duplicate_networks, disconnect_wifi, scan_networks,
+    wifi_connected_ssid, CaptureOptions, WifiNetwork,
 };

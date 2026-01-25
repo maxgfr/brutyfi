@@ -1,7 +1,7 @@
 /*!
  * WiFi Bruteforce Desktop GUI Application
  *
- * Built with Iced framework for macOS/Linux/Windows support.
+ * Built with Iced framework for macOS.
  * Provides a user-friendly interface for:
  * - Scanning WiFi networks
  * - Capturing WPA/WPA2 handshakes
@@ -9,6 +9,8 @@
  */
 
 mod app;
+mod handlers;
+mod messages;
 mod persistence;
 mod screens;
 mod theme;
@@ -18,29 +20,17 @@ mod workers_optimized;
 use app::BruteforceApp;
 use iced::window;
 use iced::Size;
-use std::panic;
-
-#[cfg(target_os = "macos")]
 use std::env;
-#[cfg(target_os = "macos")]
 use std::ffi::CString;
-#[cfg(target_os = "macos")]
 use std::os::unix::process::CommandExt;
-#[cfg(target_os = "macos")]
+use std::panic;
 use std::process::Command;
 
 /// Check if the application is running with root privileges
-#[cfg(unix)]
 fn is_root() -> bool {
     unsafe { libc::geteuid() == 0 }
 }
 
-#[cfg(not(unix))]
-fn is_root() -> bool {
-    false
-}
-
-#[cfg(target_os = "macos")]
 fn shell_escape(arg: &str) -> String {
     let mut escaped = String::from("'");
     for ch in arg.chars() {
@@ -54,7 +44,6 @@ fn shell_escape(arg: &str) -> String {
     escaped
 }
 
-#[cfg(target_os = "macos")]
 pub(crate) fn relaunch_as_root_with_env(envs: &[(&'static str, String)]) -> bool {
     let exe = match env::current_exe() {
         Ok(path) => path,
@@ -105,12 +94,10 @@ pub(crate) fn relaunch_as_root_with_env(envs: &[(&'static str, String)]) -> bool
         .unwrap_or(false)
 }
 
-#[cfg(target_os = "macos")]
 pub(crate) fn relaunch_as_root() -> bool {
     relaunch_as_root_with_env(&[])
 }
 
-#[cfg(target_os = "macos")]
 fn user_ids(username: &str) -> Option<(u32, u32)> {
     let cstr = CString::new(username).ok()?;
     unsafe {
@@ -124,7 +111,6 @@ fn user_ids(username: &str) -> Option<(u32, u32)> {
     }
 }
 
-#[cfg(target_os = "macos")]
 pub(crate) fn relaunch_as_user(envs: &[(&'static str, String)]) -> bool {
     let exe = match env::current_exe() {
         Ok(path) => path,
@@ -199,37 +185,19 @@ fn main() -> iced::Result {
 
     // macOS: do NOT auto-relaunch as root (prevents duplicate instances and file dialog issues).
     // Users can opt-in by setting BRUTIFI_AUTO_ELEVATE=1.
-    #[cfg(target_os = "macos")]
-    {
-        if !is_root {
-            let auto_elevate = std::env::var("BRUTIFI_AUTO_ELEVATE")
-                .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
-                .unwrap_or(false);
+    if !is_root {
+        let auto_elevate = std::env::var("BRUTIFI_AUTO_ELEVATE")
+            .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
 
-            if auto_elevate {
-                if relaunch_as_root() {
-                    std::process::exit(0);
-                }
-
-                eprintln!("Failed to request administrator privileges. Continuing without root.");
-            } else {
-                eprintln!("Running without admin privileges. Capture will be disabled unless you launch with sudo or set BRUTIFI_AUTO_ELEVATE=1.");
+        if auto_elevate {
+            if relaunch_as_root() {
+                std::process::exit(0);
             }
-        }
-    }
 
-    // Windows: Check for WinPcap/Npcap before starting
-    #[cfg(target_os = "windows")]
-    {
-        use brutifi::core::network::check_pcap_available;
-        if let Err(e) = check_pcap_available() {
-            eprintln!("\n{}", "!".repeat(60));
-            eprintln!("WARNING: Npcap/WinPcap Not Found");
-            eprintln!("{}\n", "!".repeat(60));
-            eprintln!("{}\n", e);
-            eprintln!("Network scanning and packet capture will be DISABLED.");
-            eprintln!("You can still use the crack functionality with existing capture files.\n");
-            eprintln!("To enable full functionality, install Npcap and restart BrutiFi.\n");
+            eprintln!("Failed to request administrator privileges. Continuing without root.");
+        } else {
+            eprintln!("Running without admin privileges. Capture will be disabled unless you launch with sudo or set BRUTIFI_AUTO_ELEVATE=1.");
         }
     }
 
@@ -238,38 +206,16 @@ fn main() -> iced::Result {
     eprintln!("================================\n");
 
     // macOS-specific guidance
-    #[cfg(target_os = "macos")]
-    {
-        eprintln!("macOS Permission Guide:");
-        eprintln!("------------------------");
-        eprintln!("  Capture:  Requires root (sudo) for monitor mode");
-        eprintln!("            Note: Apple Silicon Macs have limited capture support");
-        eprintln!();
-        eprintln!("  Crack:    Works without any special permissions");
-        eprintln!("================================\n");
+    eprintln!("macOS Permission Guide:");
+    eprintln!("------------------------");
+    eprintln!("  Capture:  Requires root (sudo) for monitor mode");
+    eprintln!("            Note: Apple Silicon Macs have limited capture support");
+    eprintln!();
+    eprintln!("  Crack:    Works without any special permissions");
+    eprintln!("================================\n");
 
-        if is_root {
-            eprintln!("Running as root. Capture mode is available.\n");
-        }
-    }
-
-    #[cfg(not(target_os = "macos"))]
-    {
-        eprintln!("Windows Permission Guide:");
-        eprintln!("------------------------");
-        eprintln!("  IMPORTANT: Run this application as Administrator for full functionality");
-        eprintln!();
-        eprintln!("  Requirements:");
-        eprintln!("    - Npcap: Required for network scanning and packet capture");
-        eprintln!("    - Administrator privileges: Required for scanning and capture");
-        eprintln!();
-        eprintln!("  - Network scanning: Requires Npcap + Administrator privileges");
-        eprintln!("  - Packet capture: Requires Npcap + Administrator privileges");
-        eprintln!("  - Crack mode: Works without any special requirements");
-        eprintln!();
-        eprintln!("To run as Administrator:");
-        eprintln!("  Right-click on brutifi.exe -> Run as Administrator");
-        eprintln!("================================\n");
+    if is_root {
+        eprintln!("Running as root. Capture mode is available.\n");
     }
 
     // Run the GUI application

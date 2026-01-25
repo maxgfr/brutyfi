@@ -214,7 +214,7 @@ pub async fn capture_async(
             bssid: None,
             output_file: &params.output_file,
             duration: None,  // Run until stopped
-            no_deauth: cfg!(target_os = "macos"),
+            no_deauth: true, // macOS doesn't support packet injection
             running: Some(running_clone), // Pass the state for stopping
         };
 

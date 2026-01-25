@@ -1,6 +1,6 @@
 # BrutiFi 🔐
 
-> Modern desktop application for WPA/WPA2 security testing with real-time feedback
+> Modern desktop application for WPA/WPA2 security testing on macOS with real-time feedback
 
 [![Release](https://github.com/maxgfr/bruteforce-wifi/actions/workflows/release.yml/badge.svg)](https://github.com/maxgfr/bruteforce-wifi/releases)
 [![CI](https://github.com/maxgfr/bruteforce-wifi/actions/workflows/ci.yml/badge.svg)](https://github.com/maxgfr/bruteforce-wifi/actions)
@@ -9,7 +9,7 @@
 
 **⚠️ EDUCATIONAL USE ONLY - UNAUTHORIZED ACCESS IS ILLEGAL ⚠️**
 
-A high-performance, cross-platform desktop GUI application for testing WPA/WPA2 password security through offline bruteforce attacks. Built with Rust and Iced, featuring dual cracking engines (Native CPU and Hashcat GPU) for maximum performance.
+A high-performance macOS desktop GUI application for testing WPA/WPA2 password security through offline bruteforce attacks. Built with Rust and Iced, featuring dual cracking engines (Native CPU and Hashcat GPU) for maximum performance.
 
 ## ✨ Features
 
@@ -28,9 +28,7 @@ A high-performance, cross-platform desktop GUI application for testing WPA/WPA2 
 - 🔒 **100% Offline** - No data transmitted anywhere
 
 ### Platform Support
-- 🍎 **macOS Native** - Apple Silicon support
-- 🪟 **Windows Ready** - Full Npcap support
-- 🐧 **Linux Compatible** - libpcap integration
+- 🍎 **macOS Native** - Apple Silicon and Intel support
 
 ## 📦 Installation
 
@@ -52,31 +50,7 @@ xattr -dr com.apple.quarantine /Applications/BrutiFi.app
 
 > This removes security warnings, but WiFi capture in monitor mode still requires root privileges on macOS.
 
-### Windows
-
-```powershell
-Invoke-WebRequest -Uri "https://github.com/maxgfr/bruteforce-wifi/releases/latest/download/WiFi-Bruteforce-Windows-x64.zip" -OutFile "WiFi-Bruteforce.zip"
-Expand-Archive WiFi-Bruteforce.zip
-cd WiFi-Bruteforce
-.\bruteforce-wifi.exe
-```
-
-**Prerequisites**: Install [Npcap](https://npcap.com/) (modern alternative to WinPcap)
-
-### Linux
-
-```bash
-# Install dependencies
-sudo apt install libpcap-dev libxkbcommon-dev libwayland-dev
-
-# Clone and build
-git clone https://github.com/maxgfr/bruteforce-wifi.git
-cd bruteforce-wifi
-cargo build --release
-sudo ./target/release/bruteforce-wifi
-```
-
-### From Source (All Platforms)
+### From Source
 
 ```bash
 git clone https://github.com/maxgfr/bruteforce-wifi.git
@@ -151,9 +125,7 @@ Navigate to "Crack" tab:
 ### Prerequisites
 
 - **Rust 1.70+**: Install via [rustup](https://rustup.rs/)
-- **macOS**: Xcode Command Line Tools
-- **Linux**: `sudo apt install libpcap-dev libxkbcommon-dev libwayland-dev`
-- **Windows**: [Visual Studio Build Tools](https://visualstudio.microsoft.com/downloads/) + Npcap SDK
+- **Xcode Command Line Tools**: `xcode-select --install`
 
 ### Build Commands
 
@@ -197,15 +169,7 @@ This will create:
 For GPU-accelerated cracking, install:
 
 ```bash
-# macOS
 brew install hashcat hcxtools
-
-# Linux
-sudo apt install hashcat hcxtools
-
-# Windows
-# Download from https://hashcat.net/hashcat/
-# Download hcxtools from https://github.com/ZerBea/hcxtools
 ```
 
 ## 🔐 Security & Legal

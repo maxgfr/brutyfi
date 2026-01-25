@@ -7,11 +7,11 @@
  */
 
 use iced::widget::{
-    button, column, container, horizontal_space, pick_list, row, text, text_editor, text_input,
+    button, column, container, horizontal_space, pick_list, row, scrollable, text, text_input,
 };
 use iced::{Element, Length};
 
-use crate::app::Message;
+use crate::messages::Message;
 use crate::theme::{self, colors};
 use serde::{Deserialize, Serialize};
 
@@ -70,7 +70,6 @@ pub struct CrackScreen {
     pub error_message: Option<String>,
     pub status_message: String,
     pub log_messages: Vec<String>,
-    pub logs_content: iced::widget::text_editor::Content,
     pub hashcat_available: bool,
     pub hcxtools_available: bool,
 }
@@ -99,7 +98,6 @@ impl Default for CrackScreen {
             error_message: None,
             status_message: "Ready to crack".to_string(),
             log_messages: Vec::new(),
-            logs_content: iced::widget::text_editor::Content::new(),
             hashcat_available: hashcat,
             hcxtools_available: hcxtools,
         }
@@ -114,7 +112,7 @@ impl CrackScreen {
             .size(14)
             .color(colors::TEXT_DIM);
 
-        let root_warning = if is_root && cfg!(target_os = "macos") {
+        let root_warning = if is_root {
             Some(
                 container(
                     column![
@@ -501,11 +499,12 @@ impl CrackScreen {
                 container(
                     column![
                         text("Logs").size(13).color(colors::TEXT),
-                        text_editor(&self.logs_content)
-                            .on_action(Message::LogsEditorAction)
-                            .padding(8)
-                            .size(11)
-                            .height(Length::Fixed(150.0))
+                        scrollable(
+                            container(text(self.log_messages.join("\n")).size(11))
+                                .padding(8)
+                                .width(Length::Fill)
+                        )
+                        .height(Length::Fixed(150.0))
                     ]
                     .spacing(8)
                     .padding(15),

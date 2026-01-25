@@ -12,41 +12,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-#[cfg(target_os = "windows")]
-use std::ptr;
-
-/// Check if WinPcap/Npcap is installed on Windows
-#[cfg(target_os = "windows")]
-pub fn check_pcap_available() -> Result<()> {
-    use std::ffi::CString;
-
-    // Try to load wpcap.dll
-    let dll_name = CString::new("wpcap.dll").unwrap();
-    unsafe {
-        let handle = winapi::um::libloaderapi::LoadLibraryA(dll_name.as_ptr());
-        if handle.is_null() {
-            return Err(anyhow!(
-                "wpcap.dll not found. Npcap or WinPcap must be installed.\n\n\
-                Please install Npcap from: https://npcap.com/#download\n\n\
-                Installation steps:\n\
-                1. Download Npcap installer from https://npcap.com/#download\n\
-                2. Run the installer as Administrator\n\
-                3. During installation, check 'Install Npcap in WinPcap API-compatible Mode'\n\
-                4. Restart BrutiFi after installation\n\n\
-                Note: WinPcap is deprecated. Npcap is the modern replacement."
-            ));
-        }
-        // Free the library handle
-        winapi::um::libloaderapi::FreeLibrary(handle);
-    }
-    Ok(())
-}
-
-#[cfg(not(target_os = "windows"))]
-pub fn check_pcap_available() -> Result<()> {
-    Ok(())
-}
-
 fn get_all_wifi_channels() -> Vec<u32> {
     let mut channels = Vec::new();
 
@@ -343,15 +308,7 @@ exit(1)
 
 /// Get current connected SSID on macOS (if any)
 pub fn wifi_connected_ssid() -> Option<String> {
-    #[cfg(target_os = "macos")]
-    {
-        check_wifi_connected()
-    }
-
-    #[cfg(not(target_os = "macos"))]
-    {
-        None
-    }
+    check_wifi_connected()
 }
 
 /// Disconnect from WiFi on macOS
@@ -601,14 +558,10 @@ pub fn capture_traffic(options: CaptureOptions) -> Result<Option<String>> {
     });
 
     // Open capture in monitor mode
-    let mut cap_builder = Capture::from_device(interface)
+    let cap_builder = Capture::from_device(interface)
         .context("Failed to find device")?
-        .promisc(true);
-
-    #[cfg(not(target_os = "windows"))]
-    {
-        cap_builder = cap_builder.rfmon(true); // Critical for monitor mode
-    }
+        .promisc(true)
+        .rfmon(true); // Critical for monitor mode
 
     let mut cap = cap_builder
         .timeout(100) // 100ms timeout for read
@@ -1473,14 +1426,10 @@ pub fn scan_pcap(interface: &str) -> Result<Vec<WifiNetwork>> {
     let mut networks_map: HashMap<String, WifiNetwork> = HashMap::new();
 
     // Attempt to open monitor mode
-    let mut cap_builder = Capture::from_device(interface)
+    let cap_builder = Capture::from_device(interface)
         .context("Failed to open device for pcap scan")?
-        .promisc(true);
-
-    #[cfg(not(target_os = "windows"))]
-    {
-        cap_builder = cap_builder.rfmon(true);
-    }
+        .promisc(true)
+        .rfmon(true);
 
     let mut cap = cap_builder
         .timeout(100) // Short timeout for responsive scanning

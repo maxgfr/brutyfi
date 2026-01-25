@@ -45,10 +45,6 @@ iced = { version = "0.13.1", features = ["tokio", "advanced", "image"] }
 rfd = "0.15"
 image = "0.24"
 
-# Windows API for DLL detection
-[target.'cfg(windows)'.dependencies]
-winapi = { version = "0.3", features = ["libloaderapi"] }
-
 [profile.release]
 opt-level = 3
 lto = "fat"

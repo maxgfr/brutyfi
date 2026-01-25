@@ -15,7 +15,7 @@ env:
 jobs:
   release:
     name: Semantic Release
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     outputs:
       new_release_published: ${{ steps.semantic.outputs.new_release_published }}
       new_release_version: ${{ steps.semantic.outputs.new_release_version }}
@@ -168,96 +168,3 @@ jobs:
           files: |
             BrutiFi-*.dmg
             BrutiFi-*.sha256
-
-  build-windows:
-    name: Build Windows (EXE)
-    needs: release
-    # if: needs.release.outputs.new_release_published == 'true'
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.release.outputs.new_release_published == 'true' && format('v{0}', needs.release.outputs.new_release_version) || '' }}
-
-      - uses: dtolnay/rust-toolchain@stable
-
-      - name: Install WinPcap SDK
-        run: |
-          Invoke-WebRequest -Uri "https://www.winpcap.org/install/bin/WpdPack_4_1_2.zip" -OutFile "WpdPack.zip"
-          Expand-Archive -Path "WpdPack.zip" -DestinationPath "C:\"
-          echo "LIB=C:\WpdPack\Lib\x64" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-
-      - name: Build release binary
-        run: cargo build --release
-        env:
-          RUSTFLAGS: "-C target-cpu=x86-64-v3"
-
-      - name: Create installer with WiX
-        run: |
-          $VERSION = "${{ needs.release.outputs.new_release_version }}"
-          if ([string]::IsNullOrEmpty($VERSION)) { $VERSION = "0.0.0-dev.${{ github.run_number }}" }
-          $INSTALLER_NAME = "WiFi-Bruteforce-${VERSION}-Windows-x64.msi"
-
-          # Simple ZIP for now (can be enhanced with WiX later)
-          Compress-Archive -Path "target\release\brutifi.exe" -DestinationPath "BrutiFi-${VERSION}-Windows-x64.zip"
-
-      - name: Generate SHA256
-        run: |
-          $VERSION = "${{ needs.release.outputs.new_release_version }}"
-          if ([string]::IsNullOrEmpty($VERSION)) { $VERSION = "0.0.0-dev.${{ github.run_number }}" }
-          $FILE = "BrutiFi-${VERSION}-Windows-x64.zip"
-          Get-FileHash -Algorithm SHA256 -Path $FILE | ForEach-Object { "$($_.Hash.ToLower())  $FILE" } | Out-File -FilePath "${FILE}.sha256"
-
-      - name: Upload to Release
-        uses: softprops/action-gh-release@v2
-        if: needs.release.outputs.new_release_published == 'true'
-        with:
-          tag_name: v${{ needs.release.outputs.new_release_version }}
-          files: |
-            BrutiFi-*.zip
-            BrutiFi-*.sha256
-
-  build-linux:
-    name: Build Linux
-    needs: release
-    # if: needs.release.outputs.new_release_published == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.release.outputs.new_release_published == 'true' && format('v{0}', needs.release.outputs.new_release_version) || '' }}
-
-      - uses: dtolnay/rust-toolchain@stable
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libpcap-dev libxkbcommon-dev libwayland-dev libgtk-3-dev
-
-      - name: Build release binary
-        run: cargo build --release
-
-      - name: Create Archive
-        run: |
-          VERSION="${{ needs.release.outputs.new_release_version }}"
-          if [ -z "$VERSION" ]; then VERSION="0.0.0-dev.${{ github.run_number }}"; fi
-          ARCHIVE_NAME="BrutiFi-${VERSION}-Linux-x86_64.tar.gz"
-
-          mkdir -p release_dist
-          cp target/release/brutifi release_dist/
-
-          tar -czf "$ARCHIVE_NAME" -C release_dist .
-
-      - name: Generate SHA256
-        run: |
-          FILE=$(ls BrutiFi-*-Linux-*.tar.gz | head -n 1)
-          shasum -a 256 "$FILE" > "$FILE.sha256"
-
-      - name: Upload to Release
-        uses: softprops/action-gh-release@v2
-        if: needs.release.outputs.new_release_published == 'true'
-        with:
-          tag_name: v${{ needs.release.outputs.new_release_version }}
-          files: |
-            BrutiFi-*-Linux-*.tar.gz
-            BrutiFi-*-Linux-*.sha256

@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.14.0](https://github.com/maxgfr/brutifi/compare/v1.13.0...v1.14.0) (2026-01-25)
+
+
+### ✨ Features
+
+* add macOS support for relaunch environment and improve hashcat command execution ([6df1d29](https://github.com/maxgfr/brutifi/commit/6df1d2903288edb5eab2ef9685568b69967c0a8a))
+* Implement crack handlers for password cracking operations ([21983f4](https://github.com/maxgfr/brutifi/commit/21983f42f46da07487a0d0aad5938e63432f42da))
+
+
+### ♻️ Code Refactoring
+
+* state persistence and clean up unused code in app and screens ([5774075](https://github.com/maxgfr/brutifi/commit/5774075201ac85546e88b09a62b1f6c81cdecb62))
+
 ## [1.13.0](https://github.com/maxgfr/brutifi/compare/v1.12.0...v1.13.0) (2026-01-23)
 
 

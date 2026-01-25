@@ -1,6 +1,6 @@
 [package]
 name = "brutifi"
-version = "1.13.0"
+version = "1.14.0"
 edition = "2021"
 description = "Cute and powerful WiFi security testing tool with real-time feedback"
 license = "MIT"

@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.14.1](https://github.com/maxgfr/brutifi/compare/v1.14.0...v1.14.1) (2026-01-25)
+
+
+### 🐛 Bug Fixes
+
+* swap @semantic-release/git and @semantic-release/github configurations ([4bb25ed](https://github.com/maxgfr/brutifi/commit/4bb25ed221ce1f86e0f4f30ed03945d10a832aa3))
+
 ## [1.14.0](https://github.com/maxgfr/brutifi/compare/v1.13.0...v1.14.0) (2026-01-25)
 
 
